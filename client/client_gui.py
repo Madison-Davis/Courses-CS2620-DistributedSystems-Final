@@ -31,7 +31,7 @@ gui.title("Login")
 gui.geometry(f"{FRAME_WIDTH}x{FRAME_HEIGHT}")
 # frames
 login_frame = tk.Frame(gui)
-main_frame = tk.Frame(gui)
+main_frame = tk.Frame(gui, bg="gray9")
 main_frame_stats_toggled = False
 
 
@@ -129,11 +129,11 @@ def load_main_frame():
 
     # ++++++++ Menu Sub-Frame ++++++++ #
     # Part 0: menu sub-frame
-    menu_subframe = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1)
+    menu_subframe = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1, bg="gray20")
     menu_subframe.grid(row=0, column=0, rowspan=6, sticky='nsew', padx=5, pady=5)
     
     # Part 1: account login/logout labels and buttons
-    tk.Label(menu_subframe, text="Shelter: [username]", font=('Arial', 12)).pack(pady=10)
+    tk.Label(menu_subframe, text="Shelter: [username]", fg="white", bg="gray20", font=('Arial', 12)).pack(pady=10)
     tk.Button(menu_subframe, text="Logout", command=load_login_frame).pack(pady=5)
     tk.Button(menu_subframe, text="Delete Account").pack(pady=5)
     
@@ -157,17 +157,17 @@ def load_main_frame():
 
     # ++++++++ Broadcast Sub-Frame ++++++++ #
     # Row 0: broadcast request
-    broadcast_subframe = tk.Frame(main_frame, highlightbackground="black", highlightcolor="black", highlightthickness=1)
+    broadcast_subframe = tk.Frame(main_frame, highlightbackground="black", highlightcolor="black", highlightthickness=1, bg="gray20")
     broadcast_subframe.grid(row=0, column=2, sticky='nsew', padx=5, pady=5)
-    tk.Label(broadcast_subframe, text="Broadcast Request", font=("Helvetica", 14, "bold")).pack(pady=5)
+    tk.Label(broadcast_subframe, text="Broadcast Request", bg="gray20", fg="white", font=("Helvetica", 14, "bold")).pack(pady=5)
     entry = tk.Entry(broadcast_subframe)
     entry.pack(side='left', padx=5, pady=5)
     tk.Button(broadcast_subframe, text="Send").pack(side='left', padx=5, pady=5)
     
     # Row 1: sent-out broadcasts
-    sent_out_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1, relief='solid')
+    sent_out_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1, relief='solid', bg="gray20")
     sent_out_broadcasts_frame.grid(row=1, column=2, rowspan=2, sticky='nsew', padx=5, pady=5)
-    tk.Label(sent_out_broadcasts_frame, text="Sent Broadcasts", font=("Helvetica", 14)).pack()
+    tk.Label(sent_out_broadcasts_frame, text="Sent Broadcasts", bg="gray20", fg="white", font=("Helvetica", 14)).pack()
     sent_outs_table = ttk.Treeview(sent_out_broadcasts_frame, columns=("ID", "Status", ""), show="headings")
     sent_outs_table.heading("ID", text="Dogs")
     sent_outs_table.heading("Status", text="Status")
@@ -177,9 +177,10 @@ def load_main_frame():
         sent_outs_table.insert("", "end", values=(shelter_id, status, "X"))
     
     # Row 2: received Broadcasts
-    received_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1, relief='solid')
+
+    received_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1, relief='solid', bg="gray20")
     received_broadcasts_frame.grid(row=3, column=2, rowspan=3, sticky='nsew', padx=5, pady=5)
-    tk.Label(received_broadcasts_frame, text="Received Broadcasts", font=("Helvetica", 14)).pack()
+    tk.Label(received_broadcasts_frame, text="Received Broadcasts", bg="gray20", fg="white", font=("Helvetica", 14)).pack()
     receives_table = ttk.Treeview(received_broadcasts_frame, columns=("From", "Dogs", "Action"), show="headings")
     receives_table.heading("From", text="From Shelter")
     receives_table.heading("Dogs", text="# Dogs")
