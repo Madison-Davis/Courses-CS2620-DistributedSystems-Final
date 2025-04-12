@@ -13,7 +13,7 @@ from client import client
 
 # ++++++++++++  Variables: Client Data  ++++++++++++ #
 # Initialize gRPC Client
-# client = chat_client.ChatClient()
+# client = client.AppClient()
 data_coordinates = [(30, 60), (45, 120), (60, 150)]
 data_shelter = [(1, "pending"), (2, "accepted"), (3, "none")]
 data_shelter_rec = [("A", 2), ("B", 5)]
