@@ -12,9 +12,9 @@ Clone the repository.
 Generate Python gRPC files: Navigate to the root project directory and run `py -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/app.proto`
 
 Run server:
-`py -m server.server --pid=PID --host=HOST`
-- PID: nonnegative integer, e.g. 0
+`py -m server.server --host=HOST --region=REGION`
 - HOST: valid host, e.g. 127.0.0.1
+- REGION: integer in {0, 1, 2}
 
 ADD INFO ON CONFIG FILES
 
@@ -28,7 +28,25 @@ Run unit tests:
 -------------------------------------------
 ## Code Structure
 
-
+```
+├── client
+│   ├── client.py               → AppClient class, functions to request/receive from server
+│   ├── gui.py                  → creates GUI for client
+├── proto
+│   ├── app.proto               → defines gRPC services and messages for requests/responses
+│   ├── app_pb2.py              → generated code from compiler: for all .proto service/rpc defs
+│   ├── app_pb2_grpc.py         → generated code from compiler: for all .proto message defs
+├── config
+│   ├── config.py               → defines HOST/PORT and other parameters
+├── server
+│   ├── server.py               → AppService class, functions to use SQL and return results
+│   ├── server_security.py      → for password hashing
+├── load_balancer
+│   ├── load_balancer.py        → functions for the load balancer
+├── tests
+│   ├── tests_replication.py    → unit tests
+└── Documentation.md
+```
 
 
 -------------------------------------------
