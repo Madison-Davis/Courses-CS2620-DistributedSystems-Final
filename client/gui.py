@@ -1,4 +1,4 @@
-# client_gui.py
+# gui.py
 
 # +++++++++++++ Imports and Installs +++++++++++++ #
 import sys
@@ -7,7 +7,7 @@ import threading
 import tkinter as tk
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from tkinter import messagebox, ttk
-from client import client_comms
+from client import client
 
 
 
