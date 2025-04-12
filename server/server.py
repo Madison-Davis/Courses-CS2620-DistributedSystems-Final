@@ -4,6 +4,7 @@
 # ++++++++ Imports and Installs ++++++++ #
 import os
 import sys
+import json
 import grpc
 import time
 import sqlite3
@@ -31,12 +32,12 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         """
         # server connection with lb
         self.lb_addr = comm_get_lead_lb()       
-        self.channel = grpc.insecure_channel(self.lb_addr)
-        self.stub = app_pb2_grpc.AppServiceStub(self.channel)
+        self.lb_channel = grpc.insecure_channel(self.lb_addr)
+        self.lb_stub = app_pb2_grpc.AppLoadBalancerStub(self.lb_channel)
         # server setup
         self.region = region
         self.pid = self.get_pid(host)
-        self.port = config.BASE_PORT + self.pid
+        self.port = config.SERVER_BASE_PORT + self.pid
         self.addr = str(host) + ":" + str(self.port)
         self.IS_LEADER = True # NOTE: not really needed now
         # server data
@@ -53,9 +54,10 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         """
         Set PID to next available integer.
         """
-        request = app_pb2.GetServerPIDRequest(region=self.region, host=host)
+        request = app_pb2.CreateNewServerRequest(region=self.region, host=host)
         try:
-            response = self.stub.GetServerPID(request)
+            response = self.lb_stub.CreateNewServer(request)
+            print(response.servers)
             if response.success:
                 return response.pid
             else:
@@ -94,10 +96,35 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             CREATE TABLE IF NOT EXISTS registry (
                 pid INTEGER PRIMARY KEY,
                 timestamp REAL NOT NULL,
-                address TEXT NOT NULL
+                addr TEXT NOT NULL
             )
             ''')
 
+    def UpdateExistingServer(self, request, context):
+        """
+        Server is notified from the load balancer that a new server was just made
+        """
+        try:
+            with self.db_connection: 
+                # Delete old registry and replace it with new data
+                # To replace data, deserialize JSON from the leader's response
+                cursor = self.db_connection.cursor()
+                cursor.execute("DELETE FROM registry")  
+                registry_data = json.loads(request.servers)
+                for pid_list, addr_list in zip(registry_data['pid'], registry_data['addr']):
+                    # Extract the actual values
+                    pid = pid_list[0]
+                    addr = addr_list[0] 
+                    # NOTE: this'll reset the time, but that is fine, as all will be active according to LB
+                    cursor.execute("INSERT INTO registry (pid, timestamp, addr) VALUES (?, ?, ?)", 
+                                (pid, time.time(), addr))
+                self.db_connection.commit()
+            print(f"[SERVER {self.pid}] Successfully replicated server table from load balancer")
+            return app_pb2.GenericResponse(success=True, message="success")
+        except Exception as e:
+            print(f"Error in UpdateRegistryReplica: {e}")
+            return app_pb2.GenericResponse(success=False, message=f"UpdateExistingServer error: {e}")
+        
     # ++++++++++++ GRPC Functions: Accounts ++++++++++++ #
     def CreateAccount(self, request, context):
         """
@@ -190,6 +217,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
     def heartbeat_loop(self):
         """
         Create a loop to send and receive heartbeats.
+        If someone dies, tell the server via InformServerDead
         """
 
     def heartbeat_start(self):
@@ -198,20 +226,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         """
         threading.Thread(target=self.heartbeat_loop, daemon=True).start()
 
-    def InformServerDead(self, request, context):
-        """
-        Server tells the LB that some other server is dead
-        Return: GenericResponse (success, message)
-        """
-        pass
-
     # ++++++++++++ GRPC Functions: Leader ++++++++++++ #
-    def GetServer(self, request, context):
-        """
-        Returns the current leader's address for this region.
-        """
-        pass
-    
     def leader_election(self):
         """
         Call load balancer to determine new leader.
@@ -227,7 +242,7 @@ def comm_create_server(host, region):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     app_service = AppService(host, region)
     app_pb2_grpc.add_AppServiceServicer_to_server(app_service, server)
-    server_port = config.BASE_PORT + app_service.pid
+    server_port = config.SERVER_BASE_PORT + app_service.pid
     server.add_insecure_port(f'{host}:{server_port}')
     server.start()
     print(f"[SERVER {app_service.pid}] Started!")
@@ -252,14 +267,14 @@ def comm_get_lead_lb():
     # If new leader, it will be > old leader's pid
     for pid in range(config.LB_PID_RANGE[0], config.LB_PID_RANGE[1]+1):
         for host in config.LB_HOSTS:
-            addr = f"{host}:{config.BASE_PORT+pid}"
+            addr = f"{host}:{config.LB_BASE_PORT+pid}"
             print(f"[SERVER] Trying To Contact a Load Balancer at Addr: {addr}")
             # Ask potentially alive load balancer who is the leader
             try:
                 with grpc.insecure_channel(addr) as channel:
-                    stub = app_pb2_grpc.AppServiceStub(channel)
-                    request = app_pb2.GetLBLeaderRequest()
-                    response = stub.GetLBLeader(request, timeout=2)
+                    stub = app_pb2_grpc.AppLoadBalancerStub(channel)
+                    request = app_pb2.FindLBLeaderRequest()
+                    response = stub.FindLBLeader(request, timeout=2)
                     if response.success and response.leader_address:
                         print(f"[SERVER] Found Active Load Balancer: {response.leader_address}")
                         return response.leader_address
@@ -279,5 +294,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     region = args.region
     host = args.host
-    assert(region in config.REGIONS)
+    assert(region in config.SERVER_REGIONS)
     comm_create_server(host, region)

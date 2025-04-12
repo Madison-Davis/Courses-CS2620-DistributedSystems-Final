@@ -9,13 +9,17 @@ service AppService {
     rpc Broadcast(BroadcastRequest) returns (GenericResponse);
     rpc ReceiveBroadcastStream(ReceiveBroadcastRequest) returns (stream ReceiveBroadcastResponse);
     rpc ApproveOrDeny(ApproveOrDenyRequest) returns (GenericResponse);
-    rpc ReplicateLB(ReplicationRequest) returns (GenericResponse);
     rpc ReplicateServer(ReplicationRequest) returns (GenericResponse);
     rpc Heartbeat(HeartbeatRequest) returns (GenericResponse);
+    rpc UpdateExistingServer(UpdateExistingServerRequest) returns (GenericResponse);
+}
+
+service AppLoadBalancer {
+    rpc ReplicateLB(ReplicationRequest) returns (GenericResponse);
     rpc InformServerDead(InformServerDeadRequest) returns (GenericResponse);
-    rpc GetServerPID(GetServerPIDRequest) returns (GetServerPIDResponse);
     rpc GetServer(GetServerRequest) returns (GetServerResponse);
-    rpc GetLBLeader(GetLBLeaderRequest) returns (GetLBLeaderResponse);
+    rpc CreateNewServer(CreateNewServerRequest) returns (CreateNewServerResponse);
+    rpc FindLBLeader(FindLBLeaderRequest) returns (FindLBLeaderResponse);
 }
 
 message CreateAccountRequest {
@@ -79,6 +83,21 @@ message InformServerDeadRequest {
     int32 pid = 1;
 }
 
+message CreateNewServerRequest {
+    int32 region = 1;
+    string host = 2;
+}
+
+message CreateNewServerResponse {
+    bool success = 1;
+    int32 pid = 2;
+    string servers = 3;
+}
+
+message UpdateExistingServerRequest {
+    string servers = 1;
+}
+
 message GetServerRequest {
     int32 region = 1;
 }
@@ -89,20 +108,10 @@ message GetServerResponse {
     string message = 3;
 }
 
-message GetServerPIDRequest {
-    int32 region = 1;
-    string host = 2;
+message FindLBLeaderRequest {
 }
 
-message GetServerPIDResponse {
-    bool success = 1;
-    int32 pid = 2;
-}
-
-message GetLBLeaderRequest {
-}
-
-message GetLBLeaderResponse {
+message FindLBLeaderResponse {
   bool success = 1;
   string leader_address = 2;
 }

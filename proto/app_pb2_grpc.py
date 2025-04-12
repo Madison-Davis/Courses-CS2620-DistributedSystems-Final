@@ -64,11 +64,6 @@ class AppServiceStub(object):
                 request_serializer=proto_dot_app__pb2.ApproveOrDenyRequest.SerializeToString,
                 response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
                 _registered_method=True)
-        self.ReplicateLB = channel.unary_unary(
-                '/chat.AppService/ReplicateLB',
-                request_serializer=proto_dot_app__pb2.ReplicationRequest.SerializeToString,
-                response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
-                _registered_method=True)
         self.ReplicateServer = channel.unary_unary(
                 '/chat.AppService/ReplicateServer',
                 request_serializer=proto_dot_app__pb2.ReplicationRequest.SerializeToString,
@@ -79,25 +74,10 @@ class AppServiceStub(object):
                 request_serializer=proto_dot_app__pb2.HeartbeatRequest.SerializeToString,
                 response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
                 _registered_method=True)
-        self.InformServerDead = channel.unary_unary(
-                '/chat.AppService/InformServerDead',
-                request_serializer=proto_dot_app__pb2.InformServerDeadRequest.SerializeToString,
+        self.UpdateExistingServer = channel.unary_unary(
+                '/chat.AppService/UpdateExistingServer',
+                request_serializer=proto_dot_app__pb2.UpdateExistingServerRequest.SerializeToString,
                 response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
-                _registered_method=True)
-        self.GetServerPID = channel.unary_unary(
-                '/chat.AppService/GetServerPID',
-                request_serializer=proto_dot_app__pb2.GetServerPIDRequest.SerializeToString,
-                response_deserializer=proto_dot_app__pb2.GetServerPIDResponse.FromString,
-                _registered_method=True)
-        self.GetServer = channel.unary_unary(
-                '/chat.AppService/GetServer',
-                request_serializer=proto_dot_app__pb2.GetServerRequest.SerializeToString,
-                response_deserializer=proto_dot_app__pb2.GetServerResponse.FromString,
-                _registered_method=True)
-        self.GetLBLeader = channel.unary_unary(
-                '/chat.AppService/GetLBLeader',
-                request_serializer=proto_dot_app__pb2.GetLBLeaderRequest.SerializeToString,
-                response_deserializer=proto_dot_app__pb2.GetLBLeaderResponse.FromString,
                 _registered_method=True)
 
 
@@ -140,12 +120,6 @@ class AppServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ReplicateLB(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def ReplicateServer(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -158,25 +132,7 @@ class AppServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def InformServerDead(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetServerPID(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetServer(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetLBLeader(self, request, context):
+    def UpdateExistingServer(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -215,11 +171,6 @@ def add_AppServiceServicer_to_server(servicer, server):
                     request_deserializer=proto_dot_app__pb2.ApproveOrDenyRequest.FromString,
                     response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
             ),
-            'ReplicateLB': grpc.unary_unary_rpc_method_handler(
-                    servicer.ReplicateLB,
-                    request_deserializer=proto_dot_app__pb2.ReplicationRequest.FromString,
-                    response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
-            ),
             'ReplicateServer': grpc.unary_unary_rpc_method_handler(
                     servicer.ReplicateServer,
                     request_deserializer=proto_dot_app__pb2.ReplicationRequest.FromString,
@@ -230,25 +181,10 @@ def add_AppServiceServicer_to_server(servicer, server):
                     request_deserializer=proto_dot_app__pb2.HeartbeatRequest.FromString,
                     response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
             ),
-            'InformServerDead': grpc.unary_unary_rpc_method_handler(
-                    servicer.InformServerDead,
-                    request_deserializer=proto_dot_app__pb2.InformServerDeadRequest.FromString,
+            'UpdateExistingServer': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateExistingServer,
+                    request_deserializer=proto_dot_app__pb2.UpdateExistingServerRequest.FromString,
                     response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
-            ),
-            'GetServerPID': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetServerPID,
-                    request_deserializer=proto_dot_app__pb2.GetServerPIDRequest.FromString,
-                    response_serializer=proto_dot_app__pb2.GetServerPIDResponse.SerializeToString,
-            ),
-            'GetServer': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetServer,
-                    request_deserializer=proto_dot_app__pb2.GetServerRequest.FromString,
-                    response_serializer=proto_dot_app__pb2.GetServerResponse.SerializeToString,
-            ),
-            'GetLBLeader': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetLBLeader,
-                    request_deserializer=proto_dot_app__pb2.GetLBLeaderRequest.FromString,
-                    response_serializer=proto_dot_app__pb2.GetLBLeaderResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -424,33 +360,6 @@ class AppService(object):
             _registered_method=True)
 
     @staticmethod
-    def ReplicateLB(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/chat.AppService/ReplicateLB',
-            proto_dot_app__pb2.ReplicationRequest.SerializeToString,
-            proto_dot_app__pb2.GenericResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
     def ReplicateServer(request,
             target,
             options=(),
@@ -505,6 +414,169 @@ class AppService(object):
             _registered_method=True)
 
     @staticmethod
+    def UpdateExistingServer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/chat.AppService/UpdateExistingServer',
+            proto_dot_app__pb2.UpdateExistingServerRequest.SerializeToString,
+            proto_dot_app__pb2.GenericResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+
+class AppLoadBalancerStub(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.ReplicateLB = channel.unary_unary(
+                '/chat.AppLoadBalancer/ReplicateLB',
+                request_serializer=proto_dot_app__pb2.ReplicationRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
+                _registered_method=True)
+        self.InformServerDead = channel.unary_unary(
+                '/chat.AppLoadBalancer/InformServerDead',
+                request_serializer=proto_dot_app__pb2.InformServerDeadRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
+                _registered_method=True)
+        self.GetServer = channel.unary_unary(
+                '/chat.AppLoadBalancer/GetServer',
+                request_serializer=proto_dot_app__pb2.GetServerRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.GetServerResponse.FromString,
+                _registered_method=True)
+        self.CreateNewServer = channel.unary_unary(
+                '/chat.AppLoadBalancer/CreateNewServer',
+                request_serializer=proto_dot_app__pb2.CreateNewServerRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.CreateNewServerResponse.FromString,
+                _registered_method=True)
+        self.FindLBLeader = channel.unary_unary(
+                '/chat.AppLoadBalancer/FindLBLeader',
+                request_serializer=proto_dot_app__pb2.FindLBLeaderRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.FindLBLeaderResponse.FromString,
+                _registered_method=True)
+
+
+class AppLoadBalancerServicer(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def ReplicateLB(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def InformServerDead(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetServer(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateNewServer(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def FindLBLeader(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_AppLoadBalancerServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'ReplicateLB': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReplicateLB,
+                    request_deserializer=proto_dot_app__pb2.ReplicationRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
+            ),
+            'InformServerDead': grpc.unary_unary_rpc_method_handler(
+                    servicer.InformServerDead,
+                    request_deserializer=proto_dot_app__pb2.InformServerDeadRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
+            ),
+            'GetServer': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetServer,
+                    request_deserializer=proto_dot_app__pb2.GetServerRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.GetServerResponse.SerializeToString,
+            ),
+            'CreateNewServer': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateNewServer,
+                    request_deserializer=proto_dot_app__pb2.CreateNewServerRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.CreateNewServerResponse.SerializeToString,
+            ),
+            'FindLBLeader': grpc.unary_unary_rpc_method_handler(
+                    servicer.FindLBLeader,
+                    request_deserializer=proto_dot_app__pb2.FindLBLeaderRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.FindLBLeaderResponse.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'chat.AppLoadBalancer', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('chat.AppLoadBalancer', rpc_method_handlers)
+
+
+ # This class is part of an EXPERIMENTAL API.
+class AppLoadBalancer(object):
+    """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def ReplicateLB(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/chat.AppLoadBalancer/ReplicateLB',
+            proto_dot_app__pb2.ReplicationRequest.SerializeToString,
+            proto_dot_app__pb2.GenericResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def InformServerDead(request,
             target,
             options=(),
@@ -518,36 +590,9 @@ class AppService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/chat.AppService/InformServerDead',
+            '/chat.AppLoadBalancer/InformServerDead',
             proto_dot_app__pb2.InformServerDeadRequest.SerializeToString,
             proto_dot_app__pb2.GenericResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetServerPID(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/chat.AppService/GetServerPID',
-            proto_dot_app__pb2.GetServerPIDRequest.SerializeToString,
-            proto_dot_app__pb2.GetServerPIDResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -572,7 +617,7 @@ class AppService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/chat.AppService/GetServer',
+            '/chat.AppLoadBalancer/GetServer',
             proto_dot_app__pb2.GetServerRequest.SerializeToString,
             proto_dot_app__pb2.GetServerResponse.FromString,
             options,
@@ -586,7 +631,7 @@ class AppService(object):
             _registered_method=True)
 
     @staticmethod
-    def GetLBLeader(request,
+    def CreateNewServer(request,
             target,
             options=(),
             channel_credentials=None,
@@ -599,9 +644,36 @@ class AppService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/chat.AppService/GetLBLeader',
-            proto_dot_app__pb2.GetLBLeaderRequest.SerializeToString,
-            proto_dot_app__pb2.GetLBLeaderResponse.FromString,
+            '/chat.AppLoadBalancer/CreateNewServer',
+            proto_dot_app__pb2.CreateNewServerRequest.SerializeToString,
+            proto_dot_app__pb2.CreateNewServerResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def FindLBLeader(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/chat.AppLoadBalancer/FindLBLeader',
+            proto_dot_app__pb2.FindLBLeaderRequest.SerializeToString,
+            proto_dot_app__pb2.FindLBLeaderResponse.FromString,
             options,
             channel_credentials,
             insecure,
