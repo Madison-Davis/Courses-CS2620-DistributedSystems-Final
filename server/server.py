@@ -13,7 +13,7 @@ import threading
 import argparse
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 config_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config", "config.py"))
-database_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "database"))
+database_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "databases"))
 from concurrent import futures
 from proto import app_pb2
 from proto import app_pb2_grpc
@@ -29,33 +29,41 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         """
         Set up ChatService.
         """
+        # server connection with lb
+        self.lb_addr = comm_get_lead_lb()       
+        self.channel = grpc.insecure_channel(self.lb_addr)
+        self.stub = app_pb2_grpc.AppServiceStub(self.channel)
         # server setup
-        self.pid = self.get_pid()
+        self.region = region
+        self.pid = self.get_pid(host)
         self.port = config.BASE_PORT + self.pid
         self.addr = str(host) + ":" + str(self.port)
-        self.IS_LEADER = True
+        self.IS_LEADER = True # NOTE: not really needed now
         # server data
-        self.active_users = {}                  # Dictionary to store active user streams
-        self.message_queues = {}                # Store queues for active users
-        self.lock = threading.Lock()            # Lock for receive message threads
+        self.active_users = {}                  # dictionary to store active user streams
+        self.message_queues = {}                # store queues for active users
         # server database
         os.makedirs(database_folder, exist_ok=True)  
-        self.db_name = os.path.join(database_folder, f"app_database_{self.pid}.db")
+        self.db_name = os.path.join(database_folder, f"server_pid{self.pid}_reg{self.region}.db")
         self.db_connection = sqlite3.connect(self.db_name, check_same_thread=False)
         self.initialize_database()
 
     # ++++++++++++++ Data Functions ++++++++++++++ #
-    def get_pid(self):
+    def get_pid(self, host):
         """
         Set PID to next available integer.
         """
-        pass
-
-    def print_SQL(self):
-        """
-        Print all data in the SQL.
-        """
-        pass
+        request = app_pb2.GetServerPIDRequest(region=self.region, host=host)
+        try:
+            response = self.stub.GetServerPID(request)
+            if response.success:
+                return response.pid
+            else:
+                print(f"[SERVER] ERROR: ran out of PIDs to make a new server")
+                return None
+        except grpc.RpcError as e:
+            # TODO: try again from another load balancer
+            raise
 
     def initialize_database(self):
         """
@@ -67,7 +75,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             CREATE TABLE IF NOT EXISTS accounts (
                 uuid INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL,
-                region INTEGER NOT NULL (region IN (0, 1, 2)),
+                region INTEGER NOT NULL CHECK(region IN (0, 1, 2)),
                 dogs INTEGER NOT NULL,
                 capacity INTEGER NOT NULL,
                 pwd_hash TEXT NOT NULL
@@ -79,7 +87,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 recipient_id INTEGER NOT NULL,
                 sender_id INTEGER NOT NULL,
                 amount_requested INTEGER NOT NULL,
-                status INTEGER NOT NULL (status IN (0, 1, 2))
+                status INTEGER NOT NULL CHECK(status IN (0, 1, 2))
             )
             ''')
             cursor.execute('''
@@ -211,8 +219,8 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         pass
 
 
-# ++++++++++++++ Serve Function ++++++++++++++ #
-def serve(host, region):
+# ++++++++++++++ Communication Functions ++++++++++++++ #
+def comm_create_server(host, region):
     """
     Create a communication point for a server for clients to connect to.
     """
@@ -223,23 +231,53 @@ def serve(host, region):
     server.add_insecure_port(f'{host}:{server_port}')
     server.start()
     print(f"[SERVER {app_service.pid}] Started!")
-    app_service.start_heartbeat()
+    app_service.heartbeat_start()
+    # If not manually shut down, use a long sleep loop to keep the main thread alive
+    # Here, we sleep for 1 day
     try:
-        # Use a long sleep loop to keep the main thread alive
         while True:
-            time.sleep(86400)  # sleep for 1 day
+            time.sleep(86400)
+    # Gracefully shutdown the server
     except KeyboardInterrupt:
         print("KeyboardInterrupt received, stopping server gracefully...")
-        server.stop(0)  # Gracefully shutdown the server
+        server.stop(0)  
 
+def comm_get_lead_lb():
+    """
+    Go through the list of potential load balancers (one leader, many replicas)
+    If a load balancer responds, ask which replica is the lead load balancer
+    """
+    # Determine where to begin looking for range of leaders
+    # If first-time, start at 0
+    # If new leader, it will be > old leader's pid
+    for pid in range(config.LB_PID_RANGE[0], config.LB_PID_RANGE[1]+1):
+        for host in config.LB_HOSTS:
+            addr = f"{host}:{config.BASE_PORT+pid}"
+            print(f"[SERVER] Trying To Contact a Load Balancer at Addr: {addr}")
+            # Ask potentially alive load balancer who is the leader
+            try:
+                with grpc.insecure_channel(addr) as channel:
+                    stub = app_pb2_grpc.AppServiceStub(channel)
+                    request = app_pb2.GetLBLeaderRequest()
+                    response = stub.GetLBLeader(request, timeout=2)
+                    if response.success and response.leader_address:
+                        print(f"[SERVER] Found Active Load Balancer: {response.leader_address}")
+                        return response.leader_address
+            # If they do not respond, likely not alive, continue
+            except Exception as e:
+                print(f'[SERVER] Exception: comm_get_lead_lb {e}')
+                continue
+    # If no load balancer is alive, return None
+    return None
 
 # ++++++++++++++  Main Function  ++++++++++++++ #
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="Start the server to serve a specific region.")
-    parser.add_argument('--host', type=str, help="4-digit IP host address.  Example: 127.0.0.1", required=True)
+    parser.add_argument('--host', type=str, help=f"4-digit IP host address.  Acceptable answers: {config.LB_HOSTS}", required=True)
     parser.add_argument('--region', type=int, help="The region of the server to run.  Example: 1", required=True)
     args = parser.parse_args()
     region = args.region
     host = args.host
-    serve(host, region)
+    assert(region in config.REGIONS)
+    comm_create_server(host, region)

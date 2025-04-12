@@ -13,7 +13,9 @@ service AppService {
     rpc ReplicateServer(ReplicationRequest) returns (GenericResponse);
     rpc Heartbeat(HeartbeatRequest) returns (GenericResponse);
     rpc InformServerDead(InformServerDeadRequest) returns (GenericResponse);
+    rpc GetServerPID(GetServerPIDRequest) returns (GetServerPIDResponse);
     rpc GetServer(GetServerRequest) returns (GetServerResponse);
+    rpc GetLBLeader(GetLBLeaderRequest) returns (GetLBLeaderResponse);
 }
 
 message CreateAccountRequest {
@@ -70,7 +72,8 @@ message ReplicationRequest {
     bytes payload = 2;
 }
 
-message HeartbeatRequest {}
+message HeartbeatRequest {
+}
 
 message InformServerDeadRequest {
     int32 pid = 1;
@@ -84,6 +87,24 @@ message GetServerResponse {
     string address = 1;
     bool success = 2;
     string message = 3;
+}
+
+message GetServerPIDRequest {
+    int32 region = 1;
+    string host = 2;
+}
+
+message GetServerPIDResponse {
+    bool success = 1;
+    int32 pid = 2;
+}
+
+message GetLBLeaderRequest {
+}
+
+message GetLBLeaderResponse {
+  bool success = 1;
+  string leader_address = 2;
 }
 
 message GenericResponse {
