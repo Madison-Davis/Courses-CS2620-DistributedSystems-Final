@@ -88,6 +88,7 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
                 if not server_addr:
                     return app_pb2.GetServerResponse(address="", success=False, message="server_addr not found in servers table")
                 server_addr = server_addr[0]
+                cursor.execute("UPDATE servers SET num_clients = num_clients + 1 WHERE server_pid = ?", (server_pid,))
                 return app_pb2.GetServerResponse(address=server_addr, success=True, message="successful")
         except Exception as e:
             print(f"Error in GetServer: {e}")
