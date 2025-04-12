@@ -2,13 +2,14 @@
 
 
 # ++++++++ Imports and Installs ++++++++ #
-import grpc
 import os
 import sys
+import grpc
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from proto import app_pb2
 from proto import app_pb2_grpc
 from config import config
+
 
 # ++++++++++ Global Variables ++++++++++ #
 

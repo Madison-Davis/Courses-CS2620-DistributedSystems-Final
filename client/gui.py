@@ -1,19 +1,18 @@
 # gui.py
 
+
 # +++++++++++++ Imports and Installs +++++++++++++ #
-import sys
 import os
-import threading
+import sys
 import tkinter as tk
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from tkinter import messagebox, ttk
-from client import client
-
+from tkinter import ttk
 
 
 # ++++++++++++  Variables: Client Data  ++++++++++++ #
-# Initialize gRPC Client
-# client = client.AppClient()
+# Initialize client gRPC comms
+# client = chat_client.ChatClient()
+# Initialize client data
 data_coordinates = [(30, 60), (45, 120), (60, 150)]
 data_shelter = [(1, "pending"), (2, "accepted"), (3, "none")]
 data_shelter_rec = [("A", 2), ("B", 5)]
@@ -22,7 +21,7 @@ data_capacity = 30
 
 
 # +++++++++++++++  Variables: GUI  +++++++++++++++ #
-# frame dimensions
+# gui dimensions
 FRAME_WIDTH = 1400
 FRAME_HEIGHT = 620
 # gui
@@ -36,7 +35,6 @@ main_frame_stats_toggled = False
 
 
 # +++++++++++++ Helper Functions: Login/Logout +++++++++++++ #
-
 def check_username(username):
     """
     Check if username exists.
@@ -47,7 +45,6 @@ def check_username(username):
 
 
 # ++++++++++++ Helper Functions: Button Presses ++++++++++++ #
-
 def button_stats_numdogs(delta, gui_label):
     """
     User decided to increment/decrement # of dogs they have.
@@ -60,7 +57,6 @@ def button_stats_numdogs(delta, gui_label):
 
 
 # ++++++++++++++ Helper Functions: Load Pages ++++++++++++++ #
-
 def load_login_frame():
     """
     Load login frame.
@@ -195,7 +191,6 @@ def load_main_frame():
 
 
 # ++++++++++++++  Main Function  ++++++++++++++ #
-
 if __name__ == "__main__":
     load_main_frame()
     gui.mainloop()
