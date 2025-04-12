@@ -1,4 +1,4 @@
-# client_gui.py
+# gui.py
 
 # +++++++++++++ Imports and Installs +++++++++++++ #
 import sys
@@ -7,13 +7,13 @@ import threading
 import tkinter as tk
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from tkinter import messagebox, ttk
-from client import client_comms
+from client import client
 
 
 
 # ++++++++++++  Variables: Client Data  ++++++++++++ #
 # Initialize gRPC Client
-# client = chat_client.ChatClient()
+# client = client.AppClient()
 data_coordinates = [(30, 60), (45, 120), (60, 150)]
 data_shelter = [(1, "pending"), (2, "accepted"), (3, "none")]
 data_shelter_rec = [("A", 2), ("B", 5)]

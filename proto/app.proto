@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package chat;
+
+service AppService {
+    rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+    rpc VerifyPassword(VerifyPasswordRequest) returns (VerifyPasswordResponse);
+    rpc DeleteAccount(DeleteAccountRequest) returns (GenericResponse);
+    rpc Broadcast(BroadcastRequest) returns (GenericResponse);
+    rpc ReceiveBroadcastStream(ReceiveBroadcastRequest) returns (stream ReceiveBroadcastResponse);
+    rpc ApproveOrDeny(ApproveOrDenyRequest) returns (GenericResponse);
+    rpc ReplicateLB(ReplicationRequest) returns (GenericResponse);
+    rpc ReplicateServer(ReplicationRequest) returns (GenericResponse);
+    rpc Heartbeat(HeartbeatRequest) returns (GenericResponse);
+    rpc InformServerDead(InformServerDeadRequest) returns (GenericResponse);
+    rpc GetServer(GetServerRequest) returns (GetServerResponse);
+}
+
+message CreateAccountRequest {
+    string username = 1;
+    int32 region = 2;
+    string password_hash = 3;
+}
+
+message CreateAccountResponse {
+    int32 uuid = 1;
+    bool success = 2;
+    string message = 3;
+}
+
+message VerifyPasswordRequest {
+    string username = 1;
+    string password_hash = 2;
+}
+
+message VerifyPasswordResponse {
+    int32 uuid = 1;
+    bool success = 2;
+    string message = 3;
+}
+
+message DeleteAccountRequest {
+    int32 uuid = 1;
+    string username = 2;
+    string password_hash = 3;
+}
+
+message BroadcastRequest {
+    int32 sender = 1;
+    int32 region = 2;
+    int32 quantity = 3;
+}
+
+message ReceiveBroadcastRequest {
+    int32 uuid = 1;
+}
+
+message ReceiveBroadcastResponse {
+    int32 sender = 1;
+    int32 region = 2;
+    int32 quantity = 3;
+}
+
+message ApproveOrDenyRequest {
+    bool approved = 1;
+}
+
+message ReplicationRequest {
+    string method = 1;
+    bytes payload = 2;
+}
+
+message HeartbeatRequest {}
+
+message InformServerDeadRequest {
+    int32 pid = 1;
+}
+
+message GetServerRequest {
+    int32 region = 1;
+}
+
+message GetServerResponse {
+    string address = 1;
+    bool success = 2;
+    string message = 3;
+}
+
+message GenericResponse {
+    bool success = 1;
+    string message = 2;
+}
