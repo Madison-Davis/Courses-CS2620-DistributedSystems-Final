@@ -85,7 +85,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             CREATE TABLE IF NOT EXISTS registry (
                 pid INTEGER PRIMARY KEY,
                 timestamp REAL NOT NULL,
-                addr TEXT NOT NULL
+                address TEXT NOT NULL
             )
             ''')
 

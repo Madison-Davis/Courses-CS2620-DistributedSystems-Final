@@ -44,7 +44,7 @@ Run unit tests:
 ├── load_balancer
 │   ├── load_balancer.py        → functions for the load balancer
 ├── tests
-│   ├── tests_replication.py    → unit tests
+│   ├── unit_tests.py           → unit tests
 └── Documentation.md
 ```
 
@@ -66,33 +66,48 @@ Run unit tests:
 -------------------------------------------
 ## Protocol Design
 
-We utilized gRPC to design how messages were to be sent to/from the client/server.  We encourage you to look into the `chat.proto` file for the complete list of all of our services and messages.  We will highlight the main ones here.
+We utilized gRPC to design how messages were to be sent to/from the client/server.  We encourage you to look into the `app.proto` file for the complete list of all of our services and messages.  We will highlight the main ones here.
 
 
 
 -------------------------------------------
 ## Server Data: SQL
 
-Format: [COLUMN]: [TYPE], [DEFAULT]
+Format: [COLUMN]: [TYPE]
 
 Each server maintains a database with the following tables:
 
 Accounts Table
-1. 
+1. uuid: integer primary key autoincrement
+2. username: text
+3. region: integer in {0, 1, 2}
+4. dogs: integer
+5. capacity: integer
+6. pwd_hash: text
    
 Broadcasts Table
-1. 
+1. broadcast_id: integer primary key autoincrement
+2. recipient_id: integer
+3. sender_id: integer
+4. amount_requested: integer
+5. status: integer in {0, 1, 2}
 
 Registry Table
-1. 
+1. pid: integer primary key
+2. timestamp: real
+3. address: text
 
 Each load balancer maintains a database with the following tables:
 
 Regions Table:
-1. 
+1. region_id: integer primary key
+2. server_pid: integer foreign key
 
 Servers Table:
-1. 
+1. pid: integer primary key
+2. address: text
+3. load: integer
+4. status: bool
 
 
 
