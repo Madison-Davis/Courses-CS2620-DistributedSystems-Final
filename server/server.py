@@ -4,7 +4,6 @@
 # ++++++++ Imports and Installs ++++++++ #
 import os
 import sys
-import json
 import grpc
 import time
 import sqlite3
@@ -20,6 +19,7 @@ from proto import app_pb2
 from proto import app_pb2_grpc
 from config import config
 
+
 # ++++++++++ Global Variables ++++++++++ #
 
 
@@ -29,30 +29,33 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         """
         Set up ChatService.
         """
+        # server setup
         self.pid = self.get_pid()
         self.port = config.BASE_PORT + self.pid
         self.addr = str(host) + ":" + str(self.port)
         self.IS_LEADER = True
-
+        # server data
         self.active_users = {}                  # Dictionary to store active user streams
         self.message_queues = {}                # Store queues for active users
         self.lock = threading.Lock()            # Lock for receive message threads
-
+        # server database
         os.makedirs(database_folder, exist_ok=True)  
         self.db_name = os.path.join(database_folder, f"app_database_{self.pid}.db")
         self.db_connection = sqlite3.connect(self.db_name, check_same_thread=False)
         self.initialize_database()
 
+    # ++++++++++++++ Data Functions ++++++++++++++ #
     def get_pid(self):
         """
         Set PID to next available integer.
         """
+        pass
 
-    # ++++++++++++++ Database ++++++++++++++ #
     def print_SQL(self):
         """
         Print all data in the SQL.
         """
+        pass
 
     def initialize_database(self):
         """
@@ -70,7 +73,6 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 pwd_hash TEXT NOT NULL
             )
             ''')
-
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS broadcasts (
                 broadcast_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,7 +82,6 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 status INTEGER NOT NULL (status IN (0, 1, 2))
             )
             ''')
-
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS registry (
                 pid INTEGER PRIMARY KEY,
@@ -89,38 +90,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             )
             ''')
 
-    # ++++++++++++++ Replication ++++++++++++++ #
-
-    def ReplicateServer(self, request, context):
-        """
-        Called by leader to replicate new data across replica servers
-        """
-
-    def Replicate(self, request, context):
-        """
-        Called by the leader on a replica to replicate a write operation.
-        Deserialize request.payload and call the appropriate local update.
-        """
-        method = request.method
-        print(f"[SERVER {self.pid}] Received replication request for method {method}")
-    
-    def replicate_to_replicas(self, method_name, request):
-        """
-        Called by the leader to replicate a write operation to all alive replicas.
-        """
-
-    # ++++++++++++++ Leader ++++++++++++++ #
-    def GetServer(self, request, context):
-        """
-        Returns the current leader's address for this region.
-        """
-    
-    def leader_election(self):
-        """
-        Call load balancer to determine new leader.
-        """
-
-    # ++++++++++++++ Functions ++++++++++++++ #
+    # ++++++++++++ GRPC Functions: Accounts ++++++++++++ #
     def CreateAccount(self, request, context):
         """
         Creates account for new username.
@@ -129,14 +99,12 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         username = request.username
         region = request.region
         password_hash = request.password_hash
-
         if context is not None:
             self.active_users[username] = context
         else:
             self.active_users[username] = ""
         if username not in self.message_queues:
             self.message_queues[username] = queue.Queue()
-        
         try:
             with self.db_connection: # ensures commit or rollback
                 cursor = self.db_connection.cursor()
@@ -145,7 +113,6 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                     return app_pb2.GenericResponse(success=False, message="Username already exists")
                 cursor.execute("INSERT INTO accounts (username, region, dogs, capacity, password_hash) VALUES (?, ?, 0, 20, ?) RETURNING uuid", (username, region, password_hash))
                 response = app_pb2.CreateAccountResponse(uuid=cursor.fetchone()[0], success=True, message="Account created successfully")
-            
             # if this server is leader, replicate the operation
             if self.IS_LEADER:
                 self.replicate_to_replicas("CreateAccount", request)
@@ -159,33 +126,52 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         Checks if user exists, and if so, returns user's UUID.
         Return: VerifyPasswordResponse (uuid, success, message)
         """
+        pass
     
     def DeleteAccount(self, request, context):
         """
         Delete account
         Return: GenericResponse (success, message)
         """
-    
+        pass
+
+    # +++++++++++ GRPC Functions: Broadcasts +++++++++++ #
     def Broadcast(self, request, context):
         """
         Broadcast request
         Return: GenericResponse (success, message)
         """
+        pass
     
     def ReceiveBroadcastStream(self, request, context):
         """
         Receive live broadcasts
         Return: ReceiveBroadcastResponse (sender, quantity, region)
         """
+        pass
     
     def ApproveOrDeny(self, request, context):
         """
         Approve or deny broadcast request
         Return: GenericResponse (success, message)
         """
+        pass
 
-    # ++++++++++++++ Heartbeat ++++++++++++++ #
-    
+    # +++++++++++ GRPC Functions: Replication +++++++++++ #
+    def ReplicateServer(self, request, context):
+        """
+        Leader server replicates its data to other replica servers
+        """
+        pass
+
+    def replicate_receive(self, request, context):
+        """
+        Server receives a request to update their data
+        """
+        method = request.method
+        print(f"[SERVER {self.pid}] Received replication request for method {method}")
+
+    # ++++++++++++ GRPC Functions: Heartbeat ++++++++++++ #
     def Heartbeat(self, request, context):
         """
         Respond to heartbeat pings
@@ -198,14 +184,34 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         Create a loop to send and receive heartbeats.
         """
 
-    def start_heartbeat(self):
+    def heartbeat_start(self):
         """
         Start heartbeat loop.
         """
         threading.Thread(target=self.heartbeat_loop, daemon=True).start()
 
+    def InformServerDead(self, request, context):
+        """
+        Server tells the LB that some other server is dead
+        Return: GenericResponse (success, message)
+        """
+        pass
 
-# ++++++++++++++  Serve Functions  ++++++++++++++ #
+    # ++++++++++++ GRPC Functions: Leader ++++++++++++ #
+    def GetServer(self, request, context):
+        """
+        Returns the current leader's address for this region.
+        """
+        pass
+    
+    def leader_election(self):
+        """
+        Call load balancer to determine new leader.
+        """
+        pass
+
+
+# ++++++++++++++ Serve Function ++++++++++++++ #
 def serve(host, region):
     """
     Create a communication point for a server for clients to connect to.
@@ -227,7 +233,7 @@ def serve(host, region):
         server.stop(0)  # Gracefully shutdown the server
 
 
-# ++++++++++++++  Main Functions  ++++++++++++++ #
+# ++++++++++++++  Main Function  ++++++++++++++ #
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="Start the server to serve a specific region.")
