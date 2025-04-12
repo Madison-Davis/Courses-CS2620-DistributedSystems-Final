@@ -34,6 +34,9 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         self.lb_addr = comm_get_lead_lb()       
         self.lb_channel = grpc.insecure_channel(self.lb_addr)
         self.lb_stub = app_pb2_grpc.AppLoadBalancerStub(self.lb_channel)
+        # server database (premature; sets itself up after get_pid)
+        self.db_name = None
+        self.db_connection = None
         # server setup
         self.region = region
         self.pid = self.get_pid(host)
@@ -44,10 +47,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         self.active_users = {}                  # dictionary to store active user streams
         self.message_queues = {}                # store queues for active users
         # server database
-        os.makedirs(database_folder, exist_ok=True)  
-        self.db_name = os.path.join(database_folder, f"server_pid{self.pid}_reg{self.region}.db")
-        self.db_connection = sqlite3.connect(self.db_name, check_same_thread=False)
-        self.initialize_database()
+
 
     # ++++++++++++++ Data Functions ++++++++++++++ #
     def get_pid(self, host):
@@ -57,20 +57,25 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         request = app_pb2.CreateNewServerRequest(region=self.region, host=host)
         try:
             response = self.lb_stub.CreateNewServer(request)
-            print(response.servers)
             if response.success:
+                self.initialize_database(response.pid, response.sql_database)
                 return response.pid
             else:
                 print(f"[SERVER] ERROR: ran out of PIDs to make a new server")
                 return None
         except grpc.RpcError as e:
-            # TODO: try again from another load balancer
+            # TODO: for future versions, try again from another load balancer
             raise
 
-    def initialize_database(self):
+    def initialize_database(self, pid, data):
         """
         Creates necessary tables if they do not exist.
         """
+        data = {} if data == "" else json.loads(data)
+        os.makedirs(database_folder, exist_ok=True)  
+        self.db_name = os.path.join(database_folder, f"server_pid{pid}_reg{self.region}.db")
+        self.db_connection = sqlite3.connect(self.db_name, check_same_thread=False)
+
         with self.db_connection:
             cursor = self.db_connection.cursor()
             cursor.execute('''
@@ -100,11 +105,34 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             )
             ''')
 
+            accounts = data.get("accounts", [])
+            for row in accounts:
+                cursor.execute('''
+                    INSERT OR IGNORE INTO accounts (uuid, username, region, dogs, capacity, pwd_hash)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', row)
+
+            broadcasts = data.get("broadcasts", [])
+            for row in broadcasts:
+                cursor.execute('''
+                    INSERT INTO broadcasts (recipient_id, sender_id, amount_requested, status)
+                    VALUES (?, ?, ?, ?)
+                ''', row)
+
+            registry = data.get("registry", [])
+            for row in registry:
+                pid, ts, addr = row
+                cursor.execute('''
+                    INSERT OR IGNORE INTO registry (pid, timestamp, addr)
+                    VALUES (?, ?, ?)
+                ''', (pid, ts, addr))         
+
     def UpdateExistingServer(self, request, context):
         """
         Server is notified from the load balancer that a new server was just made
         """
         try:
+            # Update this server's data with new information
             with self.db_connection: 
                 # Delete old registry and replace it with new data
                 # To replace data, deserialize JSON from the leader's response
@@ -120,10 +148,24 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                                 (pid, time.time(), addr))
                 self.db_connection.commit()
             print(f"[SERVER {self.pid}] Successfully replicated server table from load balancer")
-            return app_pb2.GenericResponse(success=True, message="success")
+
+            # Now, send ALL SQL data back so that the LB can give that to the new server to catch-up
+            cursor.execute("SELECT * FROM accounts")
+            accounts = cursor.fetchall()
+            cursor.execute("SELECT * FROM broadcasts")
+            broadcasts = cursor.fetchall()
+            cursor.execute("SELECT * FROM registry")
+            registry = cursor.fetchall()
+            sql_database = {
+                "accounts": accounts,
+                "broadcasts": broadcasts,
+                "registry":registry
+            }
+            sql_database = json.dumps(sql_database)  
+            return app_pb2.UpdateExistingServerResponse(success=True, sql_database=sql_database)
         except Exception as e:
             print(f"Error in UpdateRegistryReplica: {e}")
-            return app_pb2.GenericResponse(success=False, message=f"UpdateExistingServer error: {e}")
+            return app_pb2.UpdateExistingServerResponse(success=False, sql_database=f"UpdateExistingServer error: {e}")
         
     # ++++++++++++ GRPC Functions: Accounts ++++++++++++ #
     def CreateAccount(self, request, context):

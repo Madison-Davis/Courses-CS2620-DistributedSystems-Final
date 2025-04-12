@@ -11,7 +11,7 @@ service AppService {
     rpc ApproveOrDeny(ApproveOrDenyRequest) returns (GenericResponse);
     rpc ReplicateServer(ReplicationRequest) returns (GenericResponse);
     rpc Heartbeat(HeartbeatRequest) returns (GenericResponse);
-    rpc UpdateExistingServer(UpdateExistingServerRequest) returns (GenericResponse);
+    rpc UpdateExistingServer(UpdateExistingServerRequest) returns (UpdateExistingServerResponse);
 }
 
 service AppLoadBalancer {
@@ -91,11 +91,16 @@ message CreateNewServerRequest {
 message CreateNewServerResponse {
     bool success = 1;
     int32 pid = 2;
-    string servers = 3;
+    string sql_database = 3;
 }
 
 message UpdateExistingServerRequest {
     string servers = 1;
+}
+
+message UpdateExistingServerResponse {
+    bool success = 1;
+    string sql_database = 2;
 }
 
 message GetServerRequest {

@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0fproto/app.proto\x12\x04\x63hat\"O\n\x14\x43reateAccountRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x0e\n\x06region\x18\x02 \x01(\x05\x12\x15\n\rpassword_hash\x18\x03 \x01(\t\"G\n\x15\x43reateAccountResponse\x12\x0c\n\x04uuid\x18\x01 \x01(\x05\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0f\n\x07message\x18\x03 \x01(\t\"@\n\x15VerifyPasswordRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x15\n\rpassword_hash\x18\x02 \x01(\t\"H\n\x16VerifyPasswordResponse\x12\x0c\n\x04uuid\x18\x01 \x01(\x05\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0f\n\x07message\x18\x03 \x01(\t\"M\n\x14\x44\x65leteAccountRequest\x12\x0c\n\x04uuid\x18\x01 \x01(\x05\x12\x10\n\x08username\x18\x02 \x01(\t\x12\x15\n\rpassword_hash\x18\x03 \x01(\t\"D\n\x10\x42roadcastRequest\x12\x0e\n\x06sender\x18\x01 \x01(\x05\x12\x0e\n\x06region\x18\x02 \x01(\x05\x12\x10\n\x08quantity\x18\x03 \x01(\x05\"\'\n\x17ReceiveBroadcastRequest\x12\x0c\n\x04uuid\x18\x01 \x01(\x05\"L\n\x18ReceiveBroadcastResponse\x12\x0e\n\x06sender\x18\x01 \x01(\x05\x12\x0e\n\x06region\x18\x02 \x01(\x05\x12\x10\n\x08quantity\x18\x03 \x01(\x05\"(\n\x14\x41pproveOrDenyRequest\x12\x10\n\x08\x61pproved\x18\x01 \x01(\x08\"5\n\x12ReplicationRequest\x12\x0e\n\x06method\x18\x01 \x01(\t\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"\x12\n\x10HeartbeatRequest\"&\n\x17InformServerDeadRequest\x12\x0b\n\x03pid\x18\x01 \x01(\x05\"6\n\x16\x43reateNewServerRequest\x12\x0e\n\x06region\x18\x01 \x01(\x05\x12\x0c\n\x04host\x18\x02 \x01(\t\"H\n\x17\x43reateNewServerResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0b\n\x03pid\x18\x02 \x01(\x05\x12\x0f\n\x07servers\x18\x03 \x01(\t\".\n\x1bUpdateExistingServerRequest\x12\x0f\n\x07servers\x18\x01 \x01(\t\"\"\n\x10GetServerRequest\x12\x0e\n\x06region\x18\x01 \x01(\x05\"F\n\x11GetServerResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0f\n\x07message\x18\x03 \x01(\t\"\x15\n\x13\x46indLBLeaderRequest\"?\n\x14\x46indLBLeaderResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x16\n\x0eleader_address\x18\x02 \x01(\t\"3\n\x0fGenericResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t2\x94\x05\n\nAppService\x12H\n\rCreateAccount\x12\x1a.chat.CreateAccountRequest\x1a\x1b.chat.CreateAccountResponse\x12K\n\x0eVerifyPassword\x12\x1b.chat.VerifyPasswordRequest\x1a\x1c.chat.VerifyPasswordResponse\x12\x42\n\rDeleteAccount\x12\x1a.chat.DeleteAccountRequest\x1a\x15.chat.GenericResponse\x12:\n\tBroadcast\x12\x16.chat.BroadcastRequest\x1a\x15.chat.GenericResponse\x12Y\n\x16ReceiveBroadcastStream\x12\x1d.chat.ReceiveBroadcastRequest\x1a\x1e.chat.ReceiveBroadcastResponse0\x01\x12\x42\n\rApproveOrDeny\x12\x1a.chat.ApproveOrDenyRequest\x1a\x15.chat.GenericResponse\x12\x42\n\x0fReplicateServer\x12\x18.chat.ReplicationRequest\x1a\x15.chat.GenericResponse\x12:\n\tHeartbeat\x12\x16.chat.HeartbeatRequest\x1a\x15.chat.GenericResponse\x12P\n\x14UpdateExistingServer\x12!.chat.UpdateExistingServerRequest\x1a\x15.chat.GenericResponse2\xf0\x02\n\x0f\x41ppLoadBalancer\x12>\n\x0bReplicateLB\x12\x18.chat.ReplicationRequest\x1a\x15.chat.GenericResponse\x12H\n\x10InformServerDead\x12\x1d.chat.InformServerDeadRequest\x1a\x15.chat.GenericResponse\x12<\n\tGetServer\x12\x16.chat.GetServerRequest\x1a\x17.chat.GetServerResponse\x12N\n\x0f\x43reateNewServer\x12\x1c.chat.CreateNewServerRequest\x1a\x1d.chat.CreateNewServerResponse\x12\x45\n\x0c\x46indLBLeader\x12\x19.chat.FindLBLeaderRequest\x1a\x1a.chat.FindLBLeaderResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0fproto/app.proto\x12\x04\x63hat\"O\n\x14\x43reateAccountRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x0e\n\x06region\x18\x02 \x01(\x05\x12\x15\n\rpassword_hash\x18\x03 \x01(\t\"G\n\x15\x43reateAccountResponse\x12\x0c\n\x04uuid\x18\x01 \x01(\x05\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0f\n\x07message\x18\x03 \x01(\t\"@\n\x15VerifyPasswordRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x15\n\rpassword_hash\x18\x02 \x01(\t\"H\n\x16VerifyPasswordResponse\x12\x0c\n\x04uuid\x18\x01 \x01(\x05\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0f\n\x07message\x18\x03 \x01(\t\"M\n\x14\x44\x65leteAccountRequest\x12\x0c\n\x04uuid\x18\x01 \x01(\x05\x12\x10\n\x08username\x18\x02 \x01(\t\x12\x15\n\rpassword_hash\x18\x03 \x01(\t\"D\n\x10\x42roadcastRequest\x12\x0e\n\x06sender\x18\x01 \x01(\x05\x12\x0e\n\x06region\x18\x02 \x01(\x05\x12\x10\n\x08quantity\x18\x03 \x01(\x05\"\'\n\x17ReceiveBroadcastRequest\x12\x0c\n\x04uuid\x18\x01 \x01(\x05\"L\n\x18ReceiveBroadcastResponse\x12\x0e\n\x06sender\x18\x01 \x01(\x05\x12\x0e\n\x06region\x18\x02 \x01(\x05\x12\x10\n\x08quantity\x18\x03 \x01(\x05\"(\n\x14\x41pproveOrDenyRequest\x12\x10\n\x08\x61pproved\x18\x01 \x01(\x08\"5\n\x12ReplicationRequest\x12\x0e\n\x06method\x18\x01 \x01(\t\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"\x12\n\x10HeartbeatRequest\"&\n\x17InformServerDeadRequest\x12\x0b\n\x03pid\x18\x01 \x01(\x05\"6\n\x16\x43reateNewServerRequest\x12\x0e\n\x06region\x18\x01 \x01(\x05\x12\x0c\n\x04host\x18\x02 \x01(\t\"M\n\x17\x43reateNewServerResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0b\n\x03pid\x18\x02 \x01(\x05\x12\x14\n\x0csql_database\x18\x03 \x01(\t\".\n\x1bUpdateExistingServerRequest\x12\x0f\n\x07servers\x18\x01 \x01(\t\"E\n\x1cUpdateExistingServerResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x14\n\x0csql_database\x18\x02 \x01(\t\"\"\n\x10GetServerRequest\x12\x0e\n\x06region\x18\x01 \x01(\x05\"F\n\x11GetServerResponse\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0f\n\x07message\x18\x03 \x01(\t\"\x15\n\x13\x46indLBLeaderRequest\"?\n\x14\x46indLBLeaderResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x16\n\x0eleader_address\x18\x02 \x01(\t\"3\n\x0fGenericResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t2\xa1\x05\n\nAppService\x12H\n\rCreateAccount\x12\x1a.chat.CreateAccountRequest\x1a\x1b.chat.CreateAccountResponse\x12K\n\x0eVerifyPassword\x12\x1b.chat.VerifyPasswordRequest\x1a\x1c.chat.VerifyPasswordResponse\x12\x42\n\rDeleteAccount\x12\x1a.chat.DeleteAccountRequest\x1a\x15.chat.GenericResponse\x12:\n\tBroadcast\x12\x16.chat.BroadcastRequest\x1a\x15.chat.GenericResponse\x12Y\n\x16ReceiveBroadcastStream\x12\x1d.chat.ReceiveBroadcastRequest\x1a\x1e.chat.ReceiveBroadcastResponse0\x01\x12\x42\n\rApproveOrDeny\x12\x1a.chat.ApproveOrDenyRequest\x1a\x15.chat.GenericResponse\x12\x42\n\x0fReplicateServer\x12\x18.chat.ReplicationRequest\x1a\x15.chat.GenericResponse\x12:\n\tHeartbeat\x12\x16.chat.HeartbeatRequest\x1a\x15.chat.GenericResponse\x12]\n\x14UpdateExistingServer\x12!.chat.UpdateExistingServerRequest\x1a\".chat.UpdateExistingServerResponse2\xf0\x02\n\x0f\x41ppLoadBalancer\x12>\n\x0bReplicateLB\x12\x18.chat.ReplicationRequest\x1a\x15.chat.GenericResponse\x12H\n\x10InformServerDead\x12\x1d.chat.InformServerDeadRequest\x1a\x15.chat.GenericResponse\x12<\n\tGetServer\x12\x16.chat.GetServerRequest\x1a\x17.chat.GetServerResponse\x12N\n\x0f\x43reateNewServer\x12\x1c.chat.CreateNewServerRequest\x1a\x1d.chat.CreateNewServerResponse\x12\x45\n\x0c\x46indLBLeader\x12\x19.chat.FindLBLeaderRequest\x1a\x1a.chat.FindLBLeaderResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -58,21 +58,23 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_CREATENEWSERVERREQUEST']._serialized_start=744
   _globals['_CREATENEWSERVERREQUEST']._serialized_end=798
   _globals['_CREATENEWSERVERRESPONSE']._serialized_start=800
-  _globals['_CREATENEWSERVERRESPONSE']._serialized_end=872
-  _globals['_UPDATEEXISTINGSERVERREQUEST']._serialized_start=874
-  _globals['_UPDATEEXISTINGSERVERREQUEST']._serialized_end=920
-  _globals['_GETSERVERREQUEST']._serialized_start=922
-  _globals['_GETSERVERREQUEST']._serialized_end=956
-  _globals['_GETSERVERRESPONSE']._serialized_start=958
-  _globals['_GETSERVERRESPONSE']._serialized_end=1028
-  _globals['_FINDLBLEADERREQUEST']._serialized_start=1030
-  _globals['_FINDLBLEADERREQUEST']._serialized_end=1051
-  _globals['_FINDLBLEADERRESPONSE']._serialized_start=1053
-  _globals['_FINDLBLEADERRESPONSE']._serialized_end=1116
-  _globals['_GENERICRESPONSE']._serialized_start=1118
-  _globals['_GENERICRESPONSE']._serialized_end=1169
-  _globals['_APPSERVICE']._serialized_start=1172
-  _globals['_APPSERVICE']._serialized_end=1832
-  _globals['_APPLOADBALANCER']._serialized_start=1835
-  _globals['_APPLOADBALANCER']._serialized_end=2203
+  _globals['_CREATENEWSERVERRESPONSE']._serialized_end=877
+  _globals['_UPDATEEXISTINGSERVERREQUEST']._serialized_start=879
+  _globals['_UPDATEEXISTINGSERVERREQUEST']._serialized_end=925
+  _globals['_UPDATEEXISTINGSERVERRESPONSE']._serialized_start=927
+  _globals['_UPDATEEXISTINGSERVERRESPONSE']._serialized_end=996
+  _globals['_GETSERVERREQUEST']._serialized_start=998
+  _globals['_GETSERVERREQUEST']._serialized_end=1032
+  _globals['_GETSERVERRESPONSE']._serialized_start=1034
+  _globals['_GETSERVERRESPONSE']._serialized_end=1104
+  _globals['_FINDLBLEADERREQUEST']._serialized_start=1106
+  _globals['_FINDLBLEADERREQUEST']._serialized_end=1127
+  _globals['_FINDLBLEADERRESPONSE']._serialized_start=1129
+  _globals['_FINDLBLEADERRESPONSE']._serialized_end=1192
+  _globals['_GENERICRESPONSE']._serialized_start=1194
+  _globals['_GENERICRESPONSE']._serialized_end=1245
+  _globals['_APPSERVICE']._serialized_start=1248
+  _globals['_APPSERVICE']._serialized_end=1921
+  _globals['_APPLOADBALANCER']._serialized_start=1924
+  _globals['_APPLOADBALANCER']._serialized_end=2292
 # @@protoc_insertion_point(module_scope)

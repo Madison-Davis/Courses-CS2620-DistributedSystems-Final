@@ -77,7 +77,7 @@ class AppServiceStub(object):
         self.UpdateExistingServer = channel.unary_unary(
                 '/chat.AppService/UpdateExistingServer',
                 request_serializer=proto_dot_app__pb2.UpdateExistingServerRequest.SerializeToString,
-                response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
+                response_deserializer=proto_dot_app__pb2.UpdateExistingServerResponse.FromString,
                 _registered_method=True)
 
 
@@ -184,7 +184,7 @@ def add_AppServiceServicer_to_server(servicer, server):
             'UpdateExistingServer': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateExistingServer,
                     request_deserializer=proto_dot_app__pb2.UpdateExistingServerRequest.FromString,
-                    response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
+                    response_serializer=proto_dot_app__pb2.UpdateExistingServerResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -429,7 +429,7 @@ class AppService(object):
             target,
             '/chat.AppService/UpdateExistingServer',
             proto_dot_app__pb2.UpdateExistingServerRequest.SerializeToString,
-            proto_dot_app__pb2.GenericResponse.FromString,
+            proto_dot_app__pb2.UpdateExistingServerResponse.FromString,
             options,
             channel_credentials,
             insecure,

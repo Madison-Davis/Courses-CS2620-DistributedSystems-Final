@@ -122,6 +122,8 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
                 update_request = app_pb2.UpdateExistingServerRequest(servers=server_table)
 
                 # Send the update to all servers (besides the newly created server)
+                sql_database = ""
+                got_a_response = True
                 with self.db_connection:
                     cursor = self.db_connection.cursor()
                     cursor.execute("SELECT server_pid, server_addr FROM servers")
@@ -134,14 +136,16 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
                             stub = app_pb2_grpc.AppServiceStub(channel)
                             response = stub.UpdateExistingServer(update_request)
                             if not response.success:
-                                print(f"[SERVER {self.pid}] Update to replica {pid} failed: {response.message}")
+                                print(f"[SERVER {self.pid}] Update to replica {pid} failed: {response.sql_database}")
+                            elif got_a_response:
+                                sql_database = response.sql_database
                 
-                # Send the update
-                replica_response = app_pb2.CreateNewServerResponse(success=True,pid=server_pid,servers=server_table)
+                # Send the update to the new server, which includes another consistent server's entire SQL to allow catch-up
+                replica_response = app_pb2.CreateNewServerResponse(success=True,pid=server_pid,sql_database=sql_database)
                 return replica_response
         except Exception as e:
             print(f"Error in CreateNewServer: {e}")
-            return app_pb2.CreateNewServerResponse(success=False, servers=str(e))
+            return app_pb2.CreateNewServerResponse(success=False,pid=-1,sql_database=str(e))
 
     def FindLBLeader(self, request, context):
         """
