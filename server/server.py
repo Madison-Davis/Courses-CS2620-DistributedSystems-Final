@@ -261,6 +261,52 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         Create a loop to send and receive heartbeats.
         If someone dies, tell the server via InformServerDead
         """
+        time.sleep(1)
+        while True:
+            # send heartbeat ping to all active replicas
+            with self.db_connection:
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT pid, addr FROM registry")
+                for pid, addr in cursor.fetchall():
+                    # don't send to yourself
+                    if pid == self.pid:
+                        cursor.execute("UPDATE registry SET timestamp = ? WHERE pid = ?", (time.time(), self.pid,))
+                        continue
+                    # try sending to other channel
+                    try:
+                        with grpc.insecure_channel(addr) as channel:
+                            stub = app_pb2_grpc.AppServiceStub(channel)
+                            hb_request = app_pb2.HeartbeatRequest()
+                            response = stub.Heartbeat(hb_request)
+                            # if alive, update DB
+                            if response.success:
+                                with self.db_connection:
+                                    cursor = self.db_connection.cursor()
+                                    cursor.execute("UPDATE registry SET timestamp = ? WHERE pid = ?", (time.time(), pid,))
+                                print(f"[SERVER {self.pid}] server {pid} is alive!")
+                    except Exception as e:
+                        print(f"[SERVER {self.pid}] Heartbeat failed for server {pid}.  Trying again...")
+            
+            # check which peers have not responded
+            current_time = time.time()
+            with self.db_connection:
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT pid FROM registry")
+                pids = cursor.fetchall()
+                for pid_data in pids:
+                    pid = pid_data[0]
+                    if pid == self.pid:
+                        continue
+                    cursor.execute("SELECT timestamp FROM registry WHERE pid = ?", (pid,))
+                    last_hb = cursor.fetchone()[0]  # Fetch the result (single row)
+                    if current_time - last_hb > config.HEARTBEAT_TIMEOUT:
+                        print(f"[SERVER {self.pid}] Server {pid} is considered dead. {current_time} {last_hb, {current_time-last_hb}}")
+                        # let servers remove the registry (if already deleted, ignore)
+                        # If dead and in the list, remove it
+                        with self.db_connection:
+                            cursor = self.db_connection.cursor()
+                            cursor.execute("DELETE FROM registry WHERE pid = ?", (pid,))
+            time.sleep(config.HEARTBEAT_INTERVAL)
 
     def heartbeat_start(self):
         """

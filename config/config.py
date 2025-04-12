@@ -7,3 +7,5 @@ LB_PID_RANGE        = [0, 100]              # the range of PIDs that the load-ba
 LB_BASE_PORT        = 6000                  # the base port for load-balancers (port = base_port + PID)
 SERVER_BASE_PORT    = 5000                  # the base port for servers (port = base_port + PID)
 SERVER_REGIONS      = [0, 1, 2]             # the current geographic regions our app can serve, represented with number IDs
+HEARTBEAT_TIMEOUT   = 4                     # number of seconds before we figure a server is down/dead
+HEARTBEAT_INTERVAL  = 1                     # number of seconds in between servers send out a heartbeat
