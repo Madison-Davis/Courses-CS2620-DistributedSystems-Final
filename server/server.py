@@ -217,7 +217,28 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         """
         Checks if user exists, and if so, returns user's UUID.
         Return: VerifyPasswordResponse (uuid, success, message)
-        """
+        """ 
+        username = request.username
+        pwd_hash = request.password_hash
+        try:
+            with self.db_connection: # ensures commit or rollback
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT uuid, pwd_hash FROM accounts WHERE username = ?", (username,))
+                uuid, stored_pwd = cursor.fetchone()
+                if stored_pwd is not None:
+                    if stored_pwd == pwd_hash:
+                        response = app_pb2.VerifyPasswordResponse(uuid=uuid, success=True, message="Account created successfully")
+                    else:
+                        response = app_pb2.VerifyPasswordResponse(uuid=uuid, success=False, message="Passwords do not match")
+                else:
+                    response = app_pb2.VerifyPasswordResponse(uuid=uuid, success=False, message="Password is None/not found")
+                return response
+            # TODO: replicate operation across all other possible servers
+            #self.replicate_to_replicas("VerifyPassword", request)
+            return response
+        except Exception as e:
+            print(f"[SERVER {self.pid}] VerifyPassword Exception: {e}")
+            return app_pb2.VerifyPasswordResponse(uuid=-1,success=False, message=f"Exception {e}")
         pass
     
     def DeleteAccount(self, request, context):

@@ -87,6 +87,8 @@ def button_enter_login(user, pwd, region, is_new):
             "broadcast_received" : [("A", 2), ("B", 5)]
         }
     else:
+        status = app_client.verify_password(username=user, password_hash=pwd)
+        print(status)
         data = grab_user_data(user, pwd, region)
     # load main frame
     login_frame.pack_forget()
@@ -170,7 +172,7 @@ def load_login_frame():
         def submit():
             user = entries['username'].get()
             pwd = entries['password'].get()
-            region = entries['region'].get() if 'region' in entries else None
+            region = entries['region'].get() if 'region' in entries else -1 # -1 means we're logging in as returning, and we'll find its region via LB + server data
             is_new = login_mode.get() == "new"
             button_enter_login(user, pwd, region, is_new)
 

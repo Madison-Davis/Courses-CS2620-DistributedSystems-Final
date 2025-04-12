@@ -75,13 +75,17 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
         """
         LB receives a request from a client to get the server it should talk to
         """
+        # if request.region = -1, this means they're logging in as a returning user
+        # just simply query one server, ask 'hey, have you seen this person before, what server should I go to'
+        # NOTE: for now, I just assign it to the first server I got 
         try:
             with self.db_connection:
                 cursor = self.db_connection.cursor()
-                cursor.execute("SELECT server_pid FROM regions where region_id = ?", (request.region,))
+                region = request.region if request.region != -1 else 1
+                cursor.execute("SELECT server_pid FROM regions where region_id = ?", (region,))
                 server_pid = cursor.fetchone()
                 if not server_pid:
-                    return app_pb2.CreateNewServerResponse(address="",success=False,message="server_pid not found in regions table")
+                    return app_pb2.GetServerResponse(address="",success=False,message="server_pid not found in regions table")
                 server_pid = server_pid[0]
                 cursor.execute("SELECT server_addr FROM servers where server_pid = ?", (server_pid,))
                 server_addr = cursor.fetchone()
@@ -92,10 +96,8 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
                 return app_pb2.GetServerResponse(address=server_addr, success=True, message="successful")
         except Exception as e:
             print(f"Error in GetServer: {e}")
-            return app_pb2.CreateNewServerResponse(address="",success=False,message=str(e))
+            return app_pb2.GetServerResponse(address="",success=False,message=str(e))
         
-
-
     def CreateNewServer(self, request, context):
         """
         LB receives a request from a server to get a fresh pid for itself

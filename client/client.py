@@ -41,12 +41,20 @@ class AppClient:
         except Exception as e:
             print(f'[CLIENT] Exception: create_account {e}')
 
-
     def verify_password(self, username, password_hash):
         """
         Verify password
         """
-        pass
+        # Try to see if our entered password matches what we stored
+        try:
+            with grpc.insecure_channel(self.server_addr) as channel:
+                stub = app_pb2_grpc.AppServiceStub(channel)
+                request = app_pb2.VerifyPasswordRequest(username=username, password_hash=password_hash)
+                response = stub.VerifyPassword(request, timeout=2)
+                return response.success
+        # If server does not respond, likely not alive, continue
+        except Exception as e:
+            print(f'[CLIENT] Exception: verify_password {e}')
 
     def delete_account(self, uuid, username, password_hash):
         """
