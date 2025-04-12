@@ -30,24 +30,17 @@ class AppClient:
         Create new user account
         Return: success (T/F)
         """
-        pass
-
-    def list_accounts(self, ):
-        """
-        List all existing accounts
-        Return: list of usernames
-        """
-        request = app_pb2.ListAccountsRequest()
+        # Try to create an account via grpc stub
         try:
-            response = self.stub.ListAccounts(request)
-            return response.usernames
-        except grpc.RpcError as e:
-            # Try again if disconnected from server
-            if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
-                if self.reconnect():
-                    return self.list_accounts()
-            raise
+            with grpc.insecure_channel(self.server_addr) as channel:
+                stub = app_pb2_grpc.AppServiceStub(channel)
+                request = app_pb2.CreateAccountRequest(username=username, region=int(region), password_hash=password_hash)
+                response = stub.CreateAccount(request, timeout=2)
+                return response.success
+        # If server does not respond, likely not alive, continue
+        except Exception as e:
+            print(f'[CLIENT] Exception: create_account {e}')
+
 
     def verify_password(self, username, password_hash):
         """

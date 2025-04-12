@@ -51,32 +51,6 @@ def grab_user_data(username, pwd, region):
     }
     return data
 
-def button_enter_login(user, pwd, region, is_new):
-    """
-    Fired when a user presses the login button
-    Connect to its region's server
-    Grab data to populate main frame
-    """
-    # populate data {} based on if they are new user or returning
-    global data, app_client
-    app_client = client.AppClient(region)
-    if is_new:
-        data = {
-            "username" : user,
-            "password" : pwd,
-            "capacity" : 0,
-            "num_dogs" : 0,
-            "region"   : region,
-            "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
-            "broadcast_sendouts" : [(1, "pending"), (2, "accepted"), (3, "none")],
-            "broadcast_received" : [("A", 2), ("B", 5)]
-        }
-    else:
-        data = grab_user_data(user, pwd, region)
-    # load main frame
-    login_frame.pack_forget()
-    load_main_frame(data)
-
 
 # ++++++++++++ Helper Functions: Button Presses ++++++++++++ #
 def button_stats_numdogs(delta, gui_label):
@@ -89,6 +63,54 @@ def button_stats_numdogs(delta, gui_label):
     gui_label.config(text=f"Capacity: {data["capacity"]}\nCurrent No. Dogs: {data['num_dogs']}")
     pass
 
+def button_enter_login(user, pwd, region, is_new):
+    """
+    Fired when a user presses the login button
+    Connect to its region's server
+    Grab data to populate main frame
+    """
+    # populate data {} based on if they are new user or returning
+    global data, app_client
+    app_client = client.AppClient(region)
+    if is_new:
+        status = app_client.create_account(username=user, region=region, password_hash=pwd)
+        print(status)
+        # NOTE: all are correct except the last 3, i'll just make those empty those later
+        data = {
+            "username" : user,
+            "password" : pwd,
+            "capacity" : 30,
+            "num_dogs" : 0,
+            "region"   : region,
+            "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
+            "broadcast_sendouts" : [(1, "pending"), (2, "accepted"), (3, "none")],
+            "broadcast_received" : [("A", 2), ("B", 5)]
+        }
+    else:
+        data = grab_user_data(user, pwd, region)
+    # load main frame
+    login_frame.pack_forget()
+    load_main_frame(data)
+
+def button_logout():
+    """
+    User desires to logout
+    """
+    global data
+    data = {}
+    main_frame.grid_forget()
+    load_login_frame()
+
+def button_delete_account():
+    """
+    User desires to delete account
+    """
+    global data
+    data = {}
+    # TODO: update server via DeleteAccount
+    main_frame.grid_forget()
+    load_login_frame()
+    
 
 # ++++++++++++++ Helper Functions: Load Pages ++++++++++++++ #
 import tkinter as tk
@@ -205,8 +227,8 @@ def load_main_frame(data):
     
     # Part 1: account login/logout labels and buttons
     tk.Label(menu_subframe, text=f"Shelter: {data["username"]}", fg="white", bg="gray20", font=('Arial', 12)).pack(pady=10)
-    tk.Button(menu_subframe, text="Logout", command=load_login_frame).pack(pady=5)
-    tk.Button(menu_subframe, text="Delete Account").pack(pady=5)
+    tk.Button(menu_subframe, text="Logout", command=button_logout).pack(pady=5)
+    tk.Button(menu_subframe, text="Delete Account", command=button_delete_account).pack(pady=5)
     
     # Part 2: account statistics button and sub-frame
     def toggle_stats():

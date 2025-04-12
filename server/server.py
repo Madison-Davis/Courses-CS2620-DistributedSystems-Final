@@ -191,7 +191,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         """
         username = request.username
         region = request.region
-        password_hash = request.password_hash
+        pwd_hash = request.password_hash
         if context is not None:
             self.active_users[username] = context
         else:
@@ -204,15 +204,14 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 cursor.execute("SELECT 1 FROM accounts WHERE username = ?", (username,))
                 if cursor.fetchone() is not None:
                     return app_pb2.GenericResponse(success=False, message="Username already exists")
-                cursor.execute("INSERT INTO accounts (username, region, dogs, capacity, password_hash) VALUES (?, ?, 0, 20, ?) RETURNING uuid", (username, region, password_hash))
+                cursor.execute("INSERT INTO accounts (username, region, dogs, capacity, pwd_hash) VALUES (?, ?, 0, 30, ?) RETURNING uuid", (username, region, pwd_hash))
                 response = app_pb2.CreateAccountResponse(uuid=cursor.fetchone()[0], success=True, message="Account created successfully")
-            # if this server is leader, replicate the operation
-            if self.IS_LEADER:
-                self.replicate_to_replicas("CreateAccount", request)
+            # TODO: replicate operation across all other possible servers
+            #self.replicate_to_replicas("CreateAccount", request)
             return response
         except Exception as e:
             print(f"[SERVER {self.pid}] CreateAccount Exception:, {e}")
-            return app_pb2.GenericResponse(success=False, message="Create account error")
+            return app_pb2.CreateAccountResponse(uuid=-1,success=False, message=f"Exception {e}")
     
     def VerifyPassword(self, request, context):
         """
@@ -253,16 +252,61 @@ class AppService(app_pb2_grpc.AppServiceServicer):
     # +++++++++++ GRPC Functions: Replication +++++++++++ #
     def ReplicateServer(self, request, context):
         """
-        Leader server replicates its data to other replica servers
+        This server has been requested to handle a replication from another server/region
         """
-        pass
-
-    def replicate_receive(self, request, context):
-        """
-        Server receives a request to update their data
-        """
+        # Deserialize request.payload and call appropriate local update
         method = request.method
         print(f"[SERVER {self.pid}] Received replication request for method {method}")
+        if method == "CreateAccount":
+            local_request = app_pb2.CreateAccountRequest()
+            local_request.ParseFromString(request.payload)
+            self.CreateAccount(local_request, context)
+        elif method == "DeleteAccount":
+            local_request = app_pb2.DeleteAccountRequest()
+            local_request.ParseFromString(request.payload)
+            self.DeleteAccount(local_request, context)
+        elif method == "Broadcast":
+            local_request = app_pb2.UpdateRegistryRequest()
+            local_request.ParseFromString(request.payload)
+            self.Broadcast(local_request, context)
+        elif method == "ApproveOrDeny":
+            local_request = app_pb2.UpdateRegistryRequest()
+            local_request.ParseFromString(request.payload)
+            self.Broadcast(local_request, context)
+        pass
+
+    def replicate_to_other_servers(self, method_name, request):
+        """
+        Server sends a request out to other servers to update their data
+        based on what happened in this server's region
+        """
+        # Set up the request according to pb2
+        payload = request.SerializeToString()
+        request = app_pb2.ReplicationRequest(method=method_name, payload=payload)
+        # Collect pids/addresses for servers that are potential candidates for sending
+        with self.db_connection:
+            cursor = self.db_connection.cursor()
+            cursor.execute("SELECT pid, addr FROM registry")
+            for pid, addr in cursor.fetchall():
+                # Don't need to replicate to yourself
+                if pid == self.pid:
+                    continue
+                # Check heartbeat timestamp (if missing or too old, skip this replica)
+                cursor.execute("SELECT timestamp FROM registry WHERE pid = ? AND addr = ?", (pid, addr))
+                last_hb = cursor.fetchone()[0]  # Fetch the result (single row)
+                if time.time() - last_hb > config.HEARTBEAT_TIMEOUT:
+                    print(f"[SERVER {self.pid}] Replica {pid} heartbeat timed out; removing from alive list.")
+                    continue
+                # Send replication request to all active servers
+                try:
+                    with grpc.insecure_channel(addr) as channel:
+                        stub = app_pb2_grpc.AppServiceStub(channel)
+                        response = stub.Replicate(request)
+                        if not response.success:
+                            print(f"[SERVER {self.pid}] Replication to replica {pid} failed: {response.message}")
+                except Exception as e:
+                    print(f"[SERVER {self.pid}] Error replicating to replica {pid}.")
+    
 
     # ++++++++++++ GRPC Functions: Heartbeat ++++++++++++ #
     def Heartbeat(self, request, context):
