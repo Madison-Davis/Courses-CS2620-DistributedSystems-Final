@@ -4,6 +4,7 @@
 # +++++++++++++ Imports and Installs +++++++++++++ #
 import os
 import sys
+import client
 import tkinter as tk
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from tkinter import ttk
@@ -11,13 +12,17 @@ from tkinter import ttk
 
 # ++++++++++++  Variables: Client Data  ++++++++++++ #
 # Initialize client gRPC comms
-# client = chat_client.ChatClient()
-# Initialize client data
-data_coordinates = [(30, 60), (45, 120), (60, 150)]
-data_shelter = [(1, "pending"), (2, "accepted"), (3, "none")]
-data_shelter_rec = [("A", 2), ("B", 5)]
-data_numdogs = 0
-data_capacity = 30
+client = client.AppClient()
+# Initialize client data, which will be filled later by server in grab_user_data
+# TODO: change this temporary data to [], ... and we'll fill it more out in grab_user_data
+data = {
+    "username" : "",
+    "capacity" : 30,
+    "num_dogs" : 0,
+    "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
+    "broadcast_sendouts" : [(1, "pending"), (2, "accepted"), (3, "none")],
+    "broadcast_received" : [("A", 2), ("B", 5)]
+}
 
 
 # +++++++++++++++  Variables: GUI  +++++++++++++++ #
@@ -35,13 +40,21 @@ main_frame_stats_toggled = False
 
 
 # +++++++++++++ Helper Functions: Login/Logout +++++++++++++ #
+def grab_user_data(username):
+    """
+    If returning user, grab their data to load onto gui.
+    """
+    global data
+    data["username"] = username.get()
+    return data
+
 def check_username(username):
     """
     Check if username exists.
     """
     # TODO: change
     login_frame.pack_forget()
-    load_main_frame()
+    load_main_frame(grab_user_data(username))
 
 
 # ++++++++++++ Helper Functions: Button Presses ++++++++++++ #
@@ -50,9 +63,9 @@ def button_stats_numdogs(delta, gui_label):
     User decided to increment/decrement # of dogs they have.
     Reflect change on GUI.
     """
-    global data_numdogs
-    data_numdogs = data_numdogs + delta
-    gui_label.config(text=f"Capacity: {data_capacity}\nCurrent No. Dogs: {data_numdogs}")
+    global data
+    data['num_dogs'] = data['num_dogs'] + delta
+    gui_label.config(text=f"Capacity: {data["capacity"]}\nCurrent No. Dogs: {data['num_dogs']}")
     pass
 
 
@@ -105,12 +118,11 @@ def load_map_with_dots(map_frame, coordinates):
         x, y = lat_lon_to_canvas(lat, lon)
         canvas.create_oval(x-5, y-5, x+5, y+5, fill="red", outline="black")
 
-def load_main_frame():
+def load_main_frame(data):
     """
     Loads the main frame.
     """
     # ++++++++++ Start Clean ++++++++++ #
-    global data_numdogs
     for widget in main_frame.winfo_children():
         widget.destroy()
 
@@ -129,7 +141,7 @@ def load_main_frame():
     menu_subframe.grid(row=0, column=0, rowspan=6, sticky='nsew', padx=5, pady=5)
     
     # Part 1: account login/logout labels and buttons
-    tk.Label(menu_subframe, text="Shelter: [username]", fg="white", bg="gray20", font=('Arial', 12)).pack(pady=10)
+    tk.Label(menu_subframe, text=f"Shelter: {data["username"]}", fg="white", bg="gray20", font=('Arial', 12)).pack(pady=10)
     tk.Button(menu_subframe, text="Logout", command=load_login_frame).pack(pady=5)
     tk.Button(menu_subframe, text="Delete Account").pack(pady=5)
     
@@ -141,7 +153,7 @@ def load_main_frame():
             stats_subframe.pack(pady=5)
     tk.Button(menu_subframe, text="Statistics", command=toggle_stats).pack(pady=5)
     stats_subframe = tk.Frame(menu_subframe)
-    stats_label = tk.Label(stats_subframe, text="Capacity: 30\nCurrent No. Dogs: 0")
+    stats_label = tk.Label(stats_subframe, text=f"Capacity: {data["capacity"]}\nCurrent No. Dogs: {data["num_dogs"]}")
     stats_label.pack()
     tk.Button(stats_subframe, text="+", command=lambda: button_stats_numdogs(1, stats_label)).pack()
     tk.Button(stats_subframe, text="-", command=lambda: button_stats_numdogs(-1, stats_label)).pack()
@@ -149,7 +161,7 @@ def load_main_frame():
     # +++++++++++ Map Sub-Frame +++++++++++ #
     map_subframe = tk.Frame(main_frame, highlightbackground="red", highlightthickness=1, bg='black')
     map_subframe.grid(row=0, column=1, rowspan=6, sticky='nsew', padx=5, pady=5)
-    load_map_with_dots(map_subframe, data_coordinates)
+    load_map_with_dots(map_subframe, data["shelter_locations"])
 
     # ++++++++ Broadcast Sub-Frame ++++++++ #
     # Row 0: broadcast request
@@ -169,11 +181,10 @@ def load_main_frame():
     sent_outs_table.heading("Status", text="Status")
     sent_outs_table.heading("", text="Delete")
     sent_outs_table.pack(fill='both', expand=True)
-    for shelter_id, status in data_shelter:
+    for shelter_id, status in data["broadcast_sendouts"]:
         sent_outs_table.insert("", "end", values=(shelter_id, status, "X"))
     
     # Row 2: received Broadcasts
-
     received_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1, relief='solid', bg="gray20")
     received_broadcasts_frame.grid(row=3, column=2, rowspan=3, sticky='nsew', padx=5, pady=5)
     tk.Label(received_broadcasts_frame, text="Received Broadcasts", bg="gray20", fg="white", font=("Helvetica", 14)).pack()
@@ -182,7 +193,7 @@ def load_main_frame():
     receives_table.heading("Dogs", text="# Dogs")
     receives_table.heading("Action", text="Accept/Reject")
     receives_table.pack(fill='both', expand=True)
-    for sid, dogs in data_shelter_rec:
+    for sid, dogs in data["broadcast_received"]:
         receives_table.insert("", "end", values=(sid, dogs, "Yes/No"))
 
     # ++++++++++ Add Frames to GUI ++++++++++ #
@@ -192,5 +203,5 @@ def load_main_frame():
 
 # ++++++++++++++  Main Function  ++++++++++++++ #
 if __name__ == "__main__":
-    load_main_frame()
+    load_login_frame()
     gui.mainloop()
