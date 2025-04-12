@@ -16,11 +16,14 @@ from proto import app_pb2_grpc
 
 # ++++++++++ Class Definition ++++++++++ #
 class AppClient:
-    def __init__(self, server_address=None):
+    def __init__(self, region):
         """
         Establish channel and service stub.
         """
-        pass
+        self.server_addr = self.get_region_server(region)
+        self.channel = grpc.insecure_channel(self.server_addr)
+        self.stub = app_pb2_grpc.AppServiceStub(self.channel)
+        print(f"[CLIENT] Connected to server {self.server_addr}")
 
     def create_account(self, username, region, password_hash):
         """
@@ -28,6 +31,23 @@ class AppClient:
         Return: success (T/F)
         """
         pass
+
+    def list_accounts(self, ):
+        """
+        List all existing accounts
+        Return: list of usernames
+        """
+        request = app_pb2.ListAccountsRequest()
+        try:
+            response = self.stub.ListAccounts(request)
+            return response.usernames
+        except grpc.RpcError as e:
+            # Try again if disconnected from server
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                if self.reconnect():
+                    return self.list_accounts()
+            raise
 
     def verify_password(self, username, password_hash):
         """
@@ -65,8 +85,31 @@ class AppClient:
         """
         pass
 
-    def get_leader(self):
+    def get_region_server(self, region):
         """
-        Contact load balancer to fetch the new leader's address.
+        Go through the list of potential load balancers (one leader, many replicas)
+        If a load balancer responds, ask which server this client should talk to
         """
-        pass
+        # Determine where to begin looking for range of leaders
+        # If first-time, start at 0
+        # If new leader, it will be > old leader's pid
+        for pid in range(config.LB_PID_RANGE[0], config.LB_PID_RANGE[1]+1):
+            for host in config.LB_HOSTS:
+                addr = f"{host}:{config.LB_BASE_PORT+pid}"
+                print(f"[CLIENT] Trying To Contact a Load Balancer at Addr: {addr}")
+                # Ask potentially alive load balancer who is the leader
+                try:
+                    with grpc.insecure_channel(addr) as channel:
+                        stub = app_pb2_grpc.AppLoadBalancerStub(channel)
+                        request = app_pb2.GetServerRequest(region=int(region))
+                        response = stub.GetServer(request, timeout=2)
+                        if response.success and response.address:
+                            print(f"[CLIENT] Found Server To Talk To: {response.address}")
+                            return response.address
+                # If they do not respond, likely not alive, continue
+                except Exception as e:
+                    print(f'[CLIENT] Exception: get_region_server {e}')
+                    continue
+        # If no load balancer is alive, return None
+        return None
+

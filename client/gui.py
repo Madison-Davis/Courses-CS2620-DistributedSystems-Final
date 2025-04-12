@@ -11,18 +11,10 @@ from tkinter import ttk
 
 
 # ++++++++++++  Variables: Client Data  ++++++++++++ #
-# Initialize client gRPC comms
-client = client.AppClient()
-# Initialize client data, which will be filled later by server in grab_user_data
-# TODO: change this temporary data to [], ... and we'll fill it more out in grab_user_data
-data = {
-    "username" : "",
-    "capacity" : 30,
-    "num_dogs" : 0,
-    "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
-    "broadcast_sendouts" : [(1, "pending"), (2, "accepted"), (3, "none")],
-    "broadcast_received" : [("A", 2), ("B", 5)]
-}
+# Initialize client gRPC comms and data
+# Both of these will be filled once one presses login button (so no need to edit)
+app_client = None
+data = {}
 
 
 # +++++++++++++++  Variables: GUI  +++++++++++++++ #
@@ -40,21 +32,50 @@ main_frame_stats_toggled = False
 
 
 # +++++++++++++ Helper Functions: Login/Logout +++++++++++++ #
-def grab_user_data(username):
+def grab_user_data(username, pwd, region):
     """
     If returning user, grab their data to load onto gui.
+    Otherwise, set it to the default for a new user.
     """
     global data
-    data["username"] = username.get()
+    # TODO: query server and delete this hard-coded version of data
+    data = {
+        "username" : username,
+        "password" : pwd,
+        "capacity" : 0,
+        "num_dogs" : 0,
+        "region"   : region,
+        "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
+        "broadcast_sendouts" : [(1, "pending"), (2, "accepted"), (3, "none")],
+        "broadcast_received" : [("A", 2), ("B", 5)]
+    }
     return data
 
-def check_username(username):
+def button_enter_login(user, pwd, region, is_new):
     """
-    Check if username exists.
+    Fired when a user presses the login button
+    Connect to its region's server
+    Grab data to populate main frame
     """
-    # TODO: change
+    # populate data {} based on if they are new user or returning
+    global data, app_client
+    app_client = client.AppClient(region)
+    if is_new:
+        data = {
+            "username" : user,
+            "password" : pwd,
+            "capacity" : 0,
+            "num_dogs" : 0,
+            "region"   : region,
+            "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
+            "broadcast_sendouts" : [(1, "pending"), (2, "accepted"), (3, "none")],
+            "broadcast_received" : [("A", 2), ("B", 5)]
+        }
+    else:
+        data = grab_user_data(user, pwd, region)
+    # load main frame
     login_frame.pack_forget()
-    load_main_frame(grab_user_data(username))
+    load_main_frame(data)
 
 
 # ++++++++++++ Helper Functions: Button Presses ++++++++++++ #
@@ -70,27 +91,69 @@ def button_stats_numdogs(delta, gui_label):
 
 
 # ++++++++++++++ Helper Functions: Load Pages ++++++++++++++ #
+import tkinter as tk
+
 def load_login_frame():
     """
-    Load login frame.
+    Load login frame with toggle for New User / Returning User.
     """
-    global login_username, login_pwd, login_frame
-    # Part 0: destroy login frame if we're logging out/going back after changes
-    if login_frame:
+    global login_frame
+    if 'login_frame' in globals() and login_frame:
         login_frame.destroy()
-        login_frame = tk.Frame(gui)
+
+    login_frame = tk.Frame(gui)
     login_frame.pack(fill='both', expand=True)
-    # Part 1: define column/row weights
-    weights = [10,1,1,1,1,1,1,10]
+
+    # Layout weights
+    weights = [10, 1, 1, 1, 1, 1, 10]
     for i in range(len(weights)):
-        login_frame.rowconfigure(i, weight=weights[i]) 
-    login_frame.columnconfigure(0, weight=1) 
-    # Part 2: create username label and entry
-    tk.Label(login_frame, text="Enter New or Existing Username:").grid(row=1, column=0, padx=5)
-    login_username = tk.Entry(login_frame)
-    login_username.grid(row=2, column=0, padx=5)
-    # Part 3: determine if new/existing user
-    login_username.bind('<Return>', lambda event,username=login_username: check_username(username))
+        login_frame.rowconfigure(i, weight=weights[i])
+    login_frame.columnconfigure(0, weight=1)
+
+    # Label for login type
+    # Dropdown for new/returning
+    tk.Label(login_frame, text="Login Type:").grid(row=1, column=0)
+    login_mode = tk.StringVar(value="new")
+    mode_menu = tk.OptionMenu(login_frame, login_mode, "new", "returning", command=lambda _: update_fields())
+    mode_menu.grid(row=2, column=0)
+
+    # Container for dynamic input fields
+    field_container = tk.Frame(login_frame)
+    field_container.grid(row=3, column=0)
+    entries = {}  # Store references to input fields
+
+    def update_fields():
+        # Clear current widgets
+        for widget in field_container.winfo_children():
+            widget.destroy()
+        entries.clear()
+        # Username
+        row = 0
+        tk.Label(field_container, text="Username:").grid(row=row, column=0, sticky='w', padx=5)
+        entries['username'] = tk.Entry(field_container)
+        entries['username'].grid(row=row+1, column=0, padx=5)
+        row += 2
+        # Region (only for new users)
+        if login_mode.get() == "new":
+            tk.Label(field_container, text="Region:").grid(row=row, column=0, sticky='w', padx=5)
+            entries['region'] = tk.Entry(field_container)
+            entries['region'].grid(row=row+1, column=0, padx=5)
+            row += 2
+        # Password
+        tk.Label(field_container, text="Password:").grid(row=row, column=0, sticky='w', padx=5)
+        entries['password'] = tk.Entry(field_container, show='*')
+        entries['password'].grid(row=row+1, column=0, padx=5)
+        row += 2
+        # Submit button
+        def submit():
+            user = entries['username'].get()
+            pwd = entries['password'].get()
+            region = entries['region'].get() if 'region' in entries else None
+            is_new = login_mode.get() == "new"
+            button_enter_login(user, pwd, region, is_new)
+
+        tk.Button(field_container, text="Enter", command=submit).grid(row=row, column=0, pady=10)
+    update_fields()
 
 def load_map_with_dots(map_frame, coordinates):
     """

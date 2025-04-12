@@ -168,6 +168,22 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             return app_pb2.UpdateExistingServerResponse(success=False, sql_database=f"UpdateExistingServer error: {e}")
         
     # ++++++++++++ GRPC Functions: Accounts ++++++++++++ #
+    def ListAccounts(self, request, context):
+        """
+        Returns all known shelter accounts.
+        Return: GenericResponse (success, message)
+        """
+        try:
+            with self.db_connection: # ensures commit or rollback
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT username FROM accounts ORDER BY uuid")
+                usernames = [row[0] for row in cursor.fetchall()]
+                response = app_pb2.ListAccountsResponse(success=True, message="Accounts fetched", usernames=usernames)
+                return response
+        except Exception as e:
+            print(f"[SERVER {self.pid}] ListAccounts Exception: {e}")
+            return app_pb2.ListAccountsResponse(success=False, message="Could not fetch accounts")
+
     def CreateAccount(self, request, context):
         """
         Creates account for new username.

@@ -75,7 +75,25 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
         """
         LB receives a request from a client to get the server it should talk to
         """
-        pass  
+        try:
+            with self.db_connection:
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT server_pid FROM regions where region_id = ?", (request.region,))
+                server_pid = cursor.fetchone()
+                if not server_pid:
+                    return app_pb2.CreateNewServerResponse(address="",success=False,message="server_pid not found in regions table")
+                server_pid = server_pid[0]
+                cursor.execute("SELECT server_addr FROM servers where server_pid = ?", (server_pid,))
+                server_addr = cursor.fetchone()
+                if not server_addr:
+                    return app_pb2.GetServerResponse(address="", success=False, message="server_addr not found in servers table")
+                server_addr = server_addr[0]
+                return app_pb2.GetServerResponse(address=server_addr, success=True, message="successful")
+        except Exception as e:
+            print(f"Error in GetServer: {e}")
+            return app_pb2.CreateNewServerResponse(address="",success=False,message=str(e))
+        
+
 
     def CreateNewServer(self, request, context):
         """
