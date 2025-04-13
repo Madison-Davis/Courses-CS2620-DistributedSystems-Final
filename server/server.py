@@ -90,7 +90,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             ''')
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS broadcasts (
-                broadcast_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                broadcast_id INTEGER,
                 recipient_id INTEGER NOT NULL,
                 sender_id INTEGER NOT NULL,
                 amount_requested INTEGER NOT NULL,
@@ -192,12 +192,6 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         username = request.username
         region = request.region
         pwd_hash = request.pwd_hash
-        if context is not None:
-            self.active_users[username] = context
-        else:
-            self.active_users[username] = ""
-        if username not in self.message_queues:
-            self.message_queues[username] = queue.Queue()
         try:
             with self.db_connection: # ensures commit or rollback
                 cursor = self.db_connection.cursor()
@@ -205,7 +199,15 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 if cursor.fetchone() is not None:
                     return app_pb2.GenericResponse(success=False, message="Username already exists")
                 cursor.execute("INSERT INTO accounts (username, region, dogs, capacity, pwd_hash) VALUES (?, ?, 0, 30, ?) RETURNING uuid", (username, region, pwd_hash))
-                response = app_pb2.CreateAccountResponse(uuid=cursor.fetchone()[0], success=True, message="Account created successfully")
+                uuid = cursor.fetchone()[0]
+                response = app_pb2.CreateAccountResponse(uuid=uuid, success=True, message="Account created successfully")
+            
+            if context is not None:
+                self.active_users[uuid] = context
+            else:
+                self.active_users[uuid] = ""
+            if uuid not in self.message_queues:
+                self.message_queues[uuid] = queue.Queue()
             # TODO: replicate operation across all other possible servers
             #self.replicate_to_replicas("CreateAccount", request)
             return response
@@ -323,21 +325,108 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         Return: GenericResponse (success, message)
         """
         # NOTE: we'll wanna save the broadcast into the server!
-        pass
+        sender = request.sender
+        region = request.region
+        quantity = request.quantity
+
+        try:
+            with self.db_connection:
+                cursor = self.db_connection.cursor()
+
+                # Get a list of all users to send this broadcast to
+                cursor.execute("SELECT username FROM accounts WHERE region = ? AND username != ?", (region, sender,))
+                users = cursor.fetchall()
+
+                # Get the broadcast ID
+                cursor.execute("SELECT MAX(broadcast_id) AS max_id FROM broadcasts")
+                new_id = cursor.fetchone()[0] + 1
+
+                # Store broadcasts
+                for user in users:
+                    recipient = user[0]
+                    cursor.execute("""
+                        INSERT INTO broadcasts (broadcast_id, recipient_id, sender_id, amount_requested, status)
+                        VALUES (?, ?, ?, ?, 2)
+                    """, (new_id, recipient, sender, quantity))
+                
+                    # If recipient is online, push broadcast to their queue
+                    with self.lock:
+                        if recipient in self.active_users:
+                            self.message_queues[recipient].put(app_pb2.ReceiveBroadcastResponse(
+                                sender=sender,
+                                region=region,
+                                quantity=quantity
+                            ))
+                
+                response = app_pb2.GenericResponse(success=True, message="Broadcast sent")
+
+                # TODO: replicate operation
+        except Exception as e:
+            print(f"[SERVER {self.pid}] Broadcast Exception: {e}")
+            return app_pb2.GenericResponse(success=False, message="Broadcast error")
     
     def ReceiveBroadcastStream(self, request, context):
         """
         Receive live broadcasts
         Return: ReceiveBroadcastResponse (sender, quantity, region)
         """
-        pass
+        uuid = request.uuid
+        print(f"[SERVER {self.pid}] {uuid} connected to message stream.")
+        
+        # Ensure the user has a queue
+        with self.lock:
+            if uuid not in self.message_queues:
+                self.message_queues[uuid] = queue.Queue()
+            self.active_users[uuid] = True
+
+        try:
+            while context.is_active():
+                try:
+                    # Block until a message is available, then send it
+                    message = self.message_queues[uuid].get(timeout=5)  # 5s timeout to check if still active
+                    yield message
+                except queue.Empty:
+                    continue  # No message yet, keep waiting
+        except Exception as e:
+            # If they just logged out, then self.message_queue[uuid] will throw {e}, ignore
+            # Otherwise, it's a real exception we care about
+            print(f"[SERVER {self.pid}] ReceiveBroadcastStream Exception: {e} (Note a logout/delete occurred if Exception=username)")
+        finally:
+            with self.lock:
+                self.active_users.pop(uuid, None)    # Mark user as offline when they disconnect
+                self.message_queues.pop(uuid, None)  # Clean up queue
+            print(f"[SERVER {self.pid}] {uuid} disconnected from message stream.")
     
     def ApproveOrDeny(self, request, context):
         """
         Approve or deny broadcast request
         Return: GenericResponse (success, message)
         """
-        pass
+        uuid = request.uuid
+        broadcast_id = request.broadcast_id
+        approved = request.approved
+        try:
+            with self.db_connection:
+                if approved:
+                    cursor = self.db_connection.cursor()
+                    
+                    cursor.execute("SELECT dogs FROM accounts WHERE uuid = ?", (uuid,))
+                    current_dogs = cursor.fetchone()[0]
+                    cursor.execute("SELECT capacity FROM accounts WHERE uuid = ?", (uuid,))
+                    capacity = cursor.fetchone()[0]
+                    cursor.execute("SELECT amount_requested FROM broadcasts WHERE broadcast_id = ? AND recipient_id = ?", (broadcast_id, uuid))
+                    amount_requested = cursor.fetchone()[0]
+                    
+                    if current_dogs + amount_requested > capacity:
+                        return app_pb2.GenericResponse(success=False, message="Exceeded capacity")
+                    
+                    cursor.execute("UPDATE accounts SET dogs = dogs + ?", (amount_requested,))
+                    cursor.execute("DELETE FROM broadcasts WHERE broadcast_id = ?", broadcast_id)
+                    # TODO: update all other clients' guis that this broadcast has been fulfilled, also remove this broadcast from current client's GUI
+        except Exception as e:
+            print(f"[SERVER {self.pid}] ApproveOrDeny Exception: {e}")
+            return app_pb2.GenericResponse(success=False, message="ApproveOrDeny error")
+
 
     # +++++++++++ GRPC Functions: Replication +++++++++++ #
     def ReplicateServer(self, request, context):

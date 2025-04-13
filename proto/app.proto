@@ -4,7 +4,6 @@ package chat;
 
 service AppService {
     rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
-    rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
     rpc VerifyPassword(VerifyPasswordRequest) returns (VerifyPasswordResponse);
     rpc Login(LoginRequest) returns (LoginResponse);
     rpc DeleteAccount(DeleteAccountRequest) returns (GenericResponse);
@@ -34,15 +33,6 @@ message CreateAccountResponse {
     int32 uuid = 1;
     bool success = 2;
     string message = 3;
-}
-
-message ListAccountsRequest { 
-}
-
-message ListAccountsResponse {
-    bool success = 1;
-    string message = 2;
-    repeated string usernames = 3;
 }
 
 message VerifyPasswordRequest {
@@ -109,7 +99,9 @@ message ReceiveBroadcastResponse {
 }
 
 message ApproveOrDenyRequest {
-    bool approved = 1;
+    int32 uuid = 1;
+    int32 broadcast_id = 2;
+    bool approved = 3;
 }
 
 message ReplicationRequest {

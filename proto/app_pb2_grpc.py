@@ -5,7 +5,7 @@ import warnings
 
 from proto import app_pb2 as proto_dot_app__pb2
 
-GRPC_GENERATED_VERSION = '1.71.0'
+GRPC_GENERATED_VERSION = '1.70.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -38,11 +38,6 @@ class AppServiceStub(object):
                 '/chat.AppService/CreateAccount',
                 request_serializer=proto_dot_app__pb2.CreateAccountRequest.SerializeToString,
                 response_deserializer=proto_dot_app__pb2.CreateAccountResponse.FromString,
-                _registered_method=True)
-        self.ListAccounts = channel.unary_unary(
-                '/chat.AppService/ListAccounts',
-                request_serializer=proto_dot_app__pb2.ListAccountsRequest.SerializeToString,
-                response_deserializer=proto_dot_app__pb2.ListAccountsResponse.FromString,
                 _registered_method=True)
         self.VerifyPassword = channel.unary_unary(
                 '/chat.AppService/VerifyPassword',
@@ -95,12 +90,6 @@ class AppServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def CreateAccount(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def ListAccounts(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -167,11 +156,6 @@ def add_AppServiceServicer_to_server(servicer, server):
                     servicer.CreateAccount,
                     request_deserializer=proto_dot_app__pb2.CreateAccountRequest.FromString,
                     response_serializer=proto_dot_app__pb2.CreateAccountResponse.SerializeToString,
-            ),
-            'ListAccounts': grpc.unary_unary_rpc_method_handler(
-                    servicer.ListAccounts,
-                    request_deserializer=proto_dot_app__pb2.ListAccountsRequest.FromString,
-                    response_serializer=proto_dot_app__pb2.ListAccountsResponse.SerializeToString,
             ),
             'VerifyPassword': grpc.unary_unary_rpc_method_handler(
                     servicer.VerifyPassword,
@@ -246,33 +230,6 @@ class AppService(object):
             '/chat.AppService/CreateAccount',
             proto_dot_app__pb2.CreateAccountRequest.SerializeToString,
             proto_dot_app__pb2.CreateAccountResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def ListAccounts(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/chat.AppService/ListAccounts',
-            proto_dot_app__pb2.ListAccountsRequest.SerializeToString,
-            proto_dot_app__pb2.ListAccountsResponse.FromString,
             options,
             channel_credentials,
             insecure,

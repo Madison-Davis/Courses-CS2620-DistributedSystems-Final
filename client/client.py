@@ -89,25 +89,71 @@ class AppClient:
         """
         Broadcast
         """
-        pass
+        try:
+            with grpc.insecure_channel(self.server_addr) as channel:
+                stub = app_pb2_grpc.AppServiceStub(channel)
+                request = app_pb2.BroadcastRequest(sender=sender, region=region, quantity=quantity)
+                response = stub.Broadcast(request, timeout=2)
+                return response.success
+        # If server does not respond, likely not alive, continue
+        except Exception as e:
+            print(f'[CLIENT] Exception: broadcast {e}')
 
     def receive_broadcast(self, uuid, callback):
         """
         Receive broadcast stream
         """
-        pass
+        print("Listening for broadcasts...")
+        try:
+            for response in self.stub.ReceiveBroadcastStream(app_pb2.ReceiveBroadcastRequest(uuid=uuid)):
+                broadcast = app_pb2.Broadcast(
+                    broadcast_id=response.broadcast_id,
+                    recipient_id=response.recipient_id,
+                    sender_id=response.sender_id,
+                    amount_requested=response.amount_requested,
+                    status=response.status
+                )
 
-    def approve_or_deny(self, approved):
+                callback(broadcast)
+        except grpc.RpcError as e:
+            # Try again if disconnected from server
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                if self.reconnect():
+                    # Restart message stream
+                    self.receive_broadcast(uuid, callback)
+                    return
+            raise
+
+    def approve_or_deny(self, uuid, broadcast_id, approved):
         """
         Approve or deny broadcast request
         """
-        pass
+        try:
+            with grpc.insecure_channel(self.server_addr) as channel:
+                stub = app_pb2_grpc.AppServiceStub(channel)
+                request = app_pb2.ApproveOrDenyRequest(uuid=uuid, broadcast_id=broadcast_id, approved=approved)
+                response = stub.ApproveOrDeny(request, timeout=2)
+                return response.success
+        # If server does not respond, likely not alive, continue
+        except Exception as e:
+            print(f'[CLIENT] Exception: approve_or_deny {e}')
 
     def reconnect(self):
         """
         Fetch the new leader's address and reinitialize the connection.
         """
-        pass
+        new_leader = self.get_region_server()
+        if new_leader:
+            print(f"[CLIENT] New leader found: {new_leader}.  Reconnecting...")
+            # Update channel and stub with the new leader address.
+            self.channel = grpc.insecure_channel(new_leader)
+            print(f"Connecting to address {new_leader}")
+            self.stub = app_pb2_grpc.ChatServiceStub(self.channel)
+            return True
+        else:
+            print("[CLIENT] Could not get the new leader. Please try again later.")
+            return False
 
     def get_region_server(self, region):
         """
