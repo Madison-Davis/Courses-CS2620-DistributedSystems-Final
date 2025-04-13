@@ -391,7 +391,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 try:
                     with grpc.insecure_channel(addr) as channel:
                         stub = app_pb2_grpc.AppServiceStub(channel)
-                        response = stub.Replicate(request)
+                        response = stub.ReplicateServer(request)
                         if not response.success:
                             print(f"[SERVER {self.pid}] Replication to replica {pid} failed: {response.message}")
                 except Exception as e:
