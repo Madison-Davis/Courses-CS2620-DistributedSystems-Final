@@ -423,6 +423,9 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                     cursor.execute("UPDATE accounts SET dogs = dogs + ?", (amount_requested,))
                     cursor.execute("DELETE FROM broadcasts WHERE broadcast_id = ?", broadcast_id)
                     # TODO: update all other clients' guis that this broadcast has been fulfilled, also remove this broadcast from current client's GUI
+                else:
+                    cursor.execute("DELETE FROM broadcasts WHERE broadcast_id = ? AND recipient_id = ?", broadcast_id, uuid)
+                    # TODO: remove this broadcast from client's GUI
         except Exception as e:
             print(f"[SERVER {self.pid}] ApproveOrDeny Exception: {e}")
             return app_pb2.GenericResponse(success=False, message="ApproveOrDeny error")
