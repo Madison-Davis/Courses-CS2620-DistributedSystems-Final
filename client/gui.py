@@ -85,7 +85,6 @@ def button_enter_login(user, pwd, region, is_new):
             "broadcasts_sent" : [] if response.broadcasts_sent is None else response.broadcasts_sent,
             "broadcasts_recv" : [] if response.broadcasts_recv is None else response.broadcasts_recv
         }
-    print(data)
     # load main frame
     login_frame.pack_forget()
     load_main_frame(data)
