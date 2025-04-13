@@ -25,7 +25,7 @@ class AppClient:
         self.stub = app_pb2_grpc.AppServiceStub(self.channel)
         print(f"[CLIENT] Connected to server {self.server_addr}")
 
-    def create_account(self, username, region, password_hash):
+    def create_account(self, username, region, pwd_hash):
         """
         Create new user account
         Return: success (T/F)
@@ -34,14 +34,14 @@ class AppClient:
         try:
             with grpc.insecure_channel(self.server_addr) as channel:
                 stub = app_pb2_grpc.AppServiceStub(channel)
-                request = app_pb2.CreateAccountRequest(username=username, region=int(region), password_hash=password_hash)
+                request = app_pb2.CreateAccountRequest(username=username, region=int(region), pwd_hash=pwd_hash)
                 response = stub.CreateAccount(request, timeout=2)
-                return response.success
+                return response.success, response.uuid
         # If server does not respond, likely not alive, continue
         except Exception as e:
             print(f'[CLIENT] Exception: create_account {e}')
 
-    def verify_password(self, username, password_hash):
+    def verify_password(self, username, pwd_hash):
         """
         Verify password
         """
@@ -49,18 +49,41 @@ class AppClient:
         try:
             with grpc.insecure_channel(self.server_addr) as channel:
                 stub = app_pb2_grpc.AppServiceStub(channel)
-                request = app_pb2.VerifyPasswordRequest(username=username, password_hash=password_hash)
+                request = app_pb2.VerifyPasswordRequest(username=username, pwd_hash=pwd_hash)
                 response = stub.VerifyPassword(request, timeout=2)
                 return response.success
         # If server does not respond, likely not alive, continue
         except Exception as e:
             print(f'[CLIENT] Exception: verify_password {e}')
 
-    def delete_account(self, uuid, username, password_hash):
+    def login(self, username, pwd_hash):
+        """
+        Login and get back data about user
+        """
+        # Try to see if our entered password matches what we stored
+        try:
+            with grpc.insecure_channel(self.server_addr) as channel:
+                stub = app_pb2_grpc.AppServiceStub(channel)
+                request = app_pb2.LoginRequest(username=username, pwd_hash=pwd_hash)
+                response = stub.Login(request, timeout=2)
+                return response
+        # If server does not respond, likely not alive, continue
+        except Exception as e:
+            print(f'[CLIENT] Exception: login {e}')
+
+    def delete_account(self, uuid, username, pwd_hash):
         """
         Delete account
         """
-        pass
+        try:
+            with grpc.insecure_channel(self.server_addr) as channel:
+                stub = app_pb2_grpc.AppServiceStub(channel)
+                request = app_pb2.DeleteAccountRequest(uuid=uuid, username=username, pwd_hash=pwd_hash)
+                response = stub.DeleteAccount(request, timeout=2)
+                return response.success
+        # If server does not respond, likely not alive, continue
+        except Exception as e:
+            print(f'[CLIENT] Exception: delete_account {e}')
 
     def broadcast(self, sender, region, quantity):
         """

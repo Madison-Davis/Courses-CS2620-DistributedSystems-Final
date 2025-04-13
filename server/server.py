@@ -164,7 +164,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             sql_database = json.dumps(sql_database)  
             return app_pb2.UpdateExistingServerResponse(success=True, sql_database=sql_database)
         except Exception as e:
-            print(f"Error in UpdateRegistryReplica: {e}")
+            print(f"[SERVER {self.pid} UpdateRegistryReplica Exception: {e}")
             return app_pb2.UpdateExistingServerResponse(success=False, sql_database=f"UpdateExistingServer error: {e}")
         
     # ++++++++++++ GRPC Functions: Accounts ++++++++++++ #
@@ -182,7 +182,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 return response
         except Exception as e:
             print(f"[SERVER {self.pid}] ListAccounts Exception: {e}")
-            return app_pb2.ListAccountsResponse(success=False, message="Could not fetch accounts")
+            return app_pb2.ListAccountsResponse(success=False, message=f"ListAccounts Exception: {e}")
 
     def CreateAccount(self, request, context):
         """
@@ -191,7 +191,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         """
         username = request.username
         region = request.region
-        pwd_hash = request.password_hash
+        pwd_hash = request.pwd_hash
         if context is not None:
             self.active_users[username] = context
         else:
@@ -211,7 +211,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             return response
         except Exception as e:
             print(f"[SERVER {self.pid}] CreateAccount Exception:, {e}")
-            return app_pb2.CreateAccountResponse(uuid=-1,success=False, message=f"Exception {e}")
+            return app_pb2.CreateAccountResponse(uuid=-1,success=False, message=f"CreateAccount Exception: {e}")
     
     def VerifyPassword(self, request, context):
         """
@@ -219,7 +219,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         Return: VerifyPasswordResponse (uuid, success, message)
         """ 
         username = request.username
-        pwd_hash = request.password_hash
+        pwd_hash = request.pwd_hash
         try:
             with self.db_connection: # ensures commit or rollback
                 cursor = self.db_connection.cursor()
@@ -238,15 +238,83 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             return response
         except Exception as e:
             print(f"[SERVER {self.pid}] VerifyPassword Exception: {e}")
-            return app_pb2.VerifyPasswordResponse(uuid=-1,success=False, message=f"Exception {e}")
-        pass
+            return app_pb2.VerifyPasswordResponse(uuid=-1,success=False, message=f"VerifyPassword Exception: {e}")
+        
+    def Login(self, request, context):
+        """
+        Logs the user in and retrieves their data
+        Return: LoginResponse (success, message, account_info, broadcasts)
+        """ 
+        username = request.username
+        pwd_hash = request.pwd_hash
+        try:
+            with self.db_connection: # ensures commit or rollback
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT uuid FROM accounts WHERE username = ? AND pwd_hash = ?", (username, pwd_hash))
+                uuid = cursor.fetchone()[0]
+                # If this account exists...
+                if uuid is not None:
+                    # Grab account info
+                    cursor.execute("""SELECT * FROM accounts WHERE uuid = ?""", (uuid,))
+                    acc_row = cursor.fetchone()
+                    account_info = app_pb2.Account(
+                        uuid        =acc_row[0],
+                        username    =acc_row[1],
+                        region      =acc_row[2],
+                        dogs        =acc_row[3],
+                        capacity    =acc_row[4],
+                        pwd_hash    =acc_row[5]
+                    )
+                    # Grab boadcast info, which comes in two forms: received or sent-out
+                    cursor.execute("""SELECT * FROM broadcasts WHERE recipient_id = ?""", (uuid,))
+                    broadcasts_recv = [
+                        app_pb2.Broadcast(
+                            broadcast_id=row[0],
+                            recipient_id=row[1],
+                            sender_id=row[2],
+                            amount_requested=row[3],
+                            status=row[4]
+                        ) for row in cursor.fetchall()
+                    ]
+                    cursor.execute("""SELECT * FROM broadcasts WHERE sender_id = ?""", (uuid,))
+                    broadcasts_sent = [
+                        app_pb2.Broadcast(
+                            broadcast_id=row[0],
+                            recipient_id=row[1],
+                            sender_id=row[2],
+                            amount_requested=row[3],
+                            status=row[4]
+                        ) for row in cursor.fetchall()
+                    ]
+                    # Return all of this info successfully                 
+                    return app_pb2.LoginResponse(success=True, message="Login successful", account_info=account_info, broadcasts_sent=broadcasts_sent, broadcasts_recv=broadcasts_recv)
+                else:
+                    print(f"[SERVER {self.pid}] Login Invalid Credentials!")
+                    return app_pb2.LoginResponse(success=False, message="Invalid credentials", account_info=None, broadcasts_sent=None, broadcasts_recv=None)
+        except Exception as e:
+            print(f"[SERVER {self.pid}] Login Exception: {e}")
+            return app_pb2.LoginResponse(success=False, message=f"Login Exception: {e}", account_info=None, broadcasts_sent=None, broadcasts_recv=None)
     
     def DeleteAccount(self, request, context):
         """
         Delete account
         Return: GenericResponse (success, message)
         """
-        pass
+        uuid = request.uuid
+        try:
+            with self.db_connection: # ensures commit or rollback
+                cursor = self.db_connection.cursor()
+                cursor.execute("DELETE FROM accounts WHERE uuid = ?", (uuid,))
+                cursor.execute("DELETE FROM broadcasts WHERE recipient_id = ?", (uuid,))
+                cursor.execute("DELETE FROM broadcasts WHERE sender_id = ?", (uuid,))
+                return app_pb2.GenericResponse(success=True, message="Account deleted successfully")
+            # TODO: replicate operation across all other possible servers
+            #self.replicate_to_replicas("DeleteAccount", request)
+            return response
+        except Exception as e:
+            print(f"[SERVER {self.pid}] DeleteAccount Exception: {e}")
+            return app_pb2.GenericResponse(success=True, message=f"DeleteAccount Exception: {e}")
+
 
     # +++++++++++ GRPC Functions: Broadcasts +++++++++++ #
     def Broadcast(self, request, context):
@@ -254,6 +322,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         Broadcast request
         Return: GenericResponse (success, message)
         """
+        # NOTE: we'll wanna save the broadcast into the server!
         pass
     
     def ReceiveBroadcastStream(self, request, context):

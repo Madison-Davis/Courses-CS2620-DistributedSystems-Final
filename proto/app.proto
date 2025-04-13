@@ -6,6 +6,7 @@ service AppService {
     rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
     rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
     rpc VerifyPassword(VerifyPasswordRequest) returns (VerifyPasswordResponse);
+    rpc Login(LoginRequest) returns (LoginResponse);
     rpc DeleteAccount(DeleteAccountRequest) returns (GenericResponse);
     rpc Broadcast(BroadcastRequest) returns (GenericResponse);
     rpc ReceiveBroadcastStream(ReceiveBroadcastRequest) returns (stream ReceiveBroadcastResponse);
@@ -26,7 +27,7 @@ service AppLoadBalancer {
 message CreateAccountRequest {
     string username = 1;
     int32 region = 2;
-    string password_hash = 3;
+    string pwd_hash = 3;
 }
 
 message CreateAccountResponse {
@@ -46,7 +47,7 @@ message ListAccountsResponse {
 
 message VerifyPasswordRequest {
     string username = 1;
-    string password_hash = 2;
+    string pwd_hash = 2;
 }
 
 message VerifyPasswordResponse {
@@ -55,10 +56,40 @@ message VerifyPasswordResponse {
     string message = 3;
 }
 
+message LoginRequest {
+    string username = 1;
+    string pwd_hash = 2;
+}
+
+message LoginResponse {
+    bool success = 1;
+    string message = 2;
+    Account account_info = 3;
+    repeated Broadcast broadcasts_sent = 4;
+    repeated Broadcast broadcasts_recv = 5;
+}
+
+message Account {
+    int32 uuid = 1;
+    string username = 2;
+    int32 region = 3;
+    int32 dogs = 4;
+    int32 capacity = 5;
+    string pwd_hash = 6;
+}
+
+message Broadcast {
+    int32 broadcast_id = 1;
+    int32 recipient_id = 2;
+    int32 sender_id = 3;
+    int32 amount_requested = 4;
+    int32 status = 5;
+}
+
 message DeleteAccountRequest {
     int32 uuid = 1;
     string username = 2;
-    string password_hash = 3;
+    string pwd_hash = 3;
 }
 
 message BroadcastRequest {

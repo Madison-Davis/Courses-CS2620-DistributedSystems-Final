@@ -32,24 +32,7 @@ main_frame_stats_toggled = False
 
 
 # +++++++++++++ Helper Functions: Login/Logout +++++++++++++ #
-def grab_user_data(username, pwd, region):
-    """
-    If returning user, grab their data to load onto gui.
-    Otherwise, set it to the default for a new user.
-    """
-    global data
-    # TODO: query server and delete this hard-coded version of data
-    data = {
-        "username" : username,
-        "password" : pwd,
-        "capacity" : 0,
-        "num_dogs" : 0,
-        "region"   : region,
-        "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
-        "broadcast_sendouts" : [(1, "pending"), (2, "accepted"), (3, "none")],
-        "broadcast_received" : [("A", 2), ("B", 5)]
-    }
-    return data
+# NOTE: for the shelter location dots we can just make like a random number generator for a new user
 
 
 # ++++++++++++ Helper Functions: Button Presses ++++++++++++ #
@@ -73,23 +56,36 @@ def button_enter_login(user, pwd, region, is_new):
     global data, app_client
     app_client = client.AppClient(region)
     if is_new:
-        status = app_client.create_account(username=user, region=region, password_hash=pwd)
-        print(status)
+        status, uuid = app_client.create_account(username=user, region=region, pwd_hash=pwd)
+        assert(status)
         # NOTE: all are correct except the last 3, i'll just make those empty those later
         data = {
             "username" : user,
-            "password" : pwd,
-            "capacity" : 30,
+            "uuid"     : uuid,
+            "pwd"      : pwd,
+            "capacity" : 30, # this is just how we start it off at
             "num_dogs" : 0,
             "region"   : region,
             "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
-            "broadcast_sendouts" : [(1, "pending"), (2, "accepted"), (3, "none")],
-            "broadcast_received" : [("A", 2), ("B", 5)]
+            "broadcasts_sent" : [],
+            "broadcasts_recv" : []
         }
     else:
-        status = app_client.verify_password(username=user, password_hash=pwd)
-        print(status)
-        data = grab_user_data(user, pwd, region)
+        status = app_client.verify_password(username=user, pwd_hash=pwd)
+        assert(status)
+        response = app_client.login(username=user, pwd_hash=pwd)
+        data = {
+            "username" : user,
+            "pwd"      : pwd,
+            "uuid"     : response.account_info.uuid,
+            "capacity" : response.account_info.capacity,
+            "num_dogs" : 0,
+            "region"   : response.account_info.region,
+            "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
+            "broadcasts_sent" : [] if response.broadcasts_sent is None else response.broadcasts_sent,
+            "broadcasts_recv" : [] if response.broadcasts_recv is None else response.broadcasts_recv
+        }
+    print(data)
     # load main frame
     login_frame.pack_forget()
     load_main_frame(data)
@@ -108,8 +104,9 @@ def button_delete_account():
     User desires to delete account
     """
     global data
+    status = app_client.delete_account(uuid=data["uuid"], username=data["username"], pwd_hash=data["pwd"])
+    assert(status)
     data = {}
-    # TODO: update server via DeleteAccount
     main_frame.grid_forget()
     load_login_frame()
     
@@ -165,13 +162,13 @@ def load_login_frame():
             row += 2
         # Password
         tk.Label(field_container, text="Password:").grid(row=row, column=0, sticky='w', padx=5)
-        entries['password'] = tk.Entry(field_container, show='*')
-        entries['password'].grid(row=row+1, column=0, padx=5)
+        entries['pwd'] = tk.Entry(field_container, show='*')
+        entries['pwd'].grid(row=row+1, column=0, padx=5)
         row += 2
         # Submit button
         def submit():
             user = entries['username'].get()
-            pwd = entries['password'].get()
+            pwd = entries['pwd'].get()
             region = entries['region'].get() if 'region' in entries else -1 # -1 means we're logging in as returning, and we'll find its region via LB + server data
             is_new = login_mode.get() == "new"
             button_enter_login(user, pwd, region, is_new)
@@ -268,7 +265,7 @@ def load_main_frame(data):
     sent_outs_table.heading("Status", text="Status")
     sent_outs_table.heading("", text="Delete")
     sent_outs_table.pack(fill='both', expand=True)
-    for shelter_id, status in data["broadcast_sendouts"]:
+    for shelter_id, status in data["broadcasts_sent"]:
         sent_outs_table.insert("", "end", values=(shelter_id, status, "X"))
     
     # Row 2: received Broadcasts
@@ -280,7 +277,7 @@ def load_main_frame(data):
     receives_table.heading("Dogs", text="# Dogs")
     receives_table.heading("Action", text="Accept/Reject")
     receives_table.pack(fill='both', expand=True)
-    for sid, dogs in data["broadcast_received"]:
+    for sid, dogs in data["broadcasts_recv"]:
         receives_table.insert("", "end", values=(sid, dogs, "Yes/No"))
 
     # ++++++++++ Add Frames to GUI ++++++++++ #

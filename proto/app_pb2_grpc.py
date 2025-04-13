@@ -49,6 +49,11 @@ class AppServiceStub(object):
                 request_serializer=proto_dot_app__pb2.VerifyPasswordRequest.SerializeToString,
                 response_deserializer=proto_dot_app__pb2.VerifyPasswordResponse.FromString,
                 _registered_method=True)
+        self.Login = channel.unary_unary(
+                '/chat.AppService/Login',
+                request_serializer=proto_dot_app__pb2.LoginRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.LoginResponse.FromString,
+                _registered_method=True)
         self.DeleteAccount = channel.unary_unary(
                 '/chat.AppService/DeleteAccount',
                 request_serializer=proto_dot_app__pb2.DeleteAccountRequest.SerializeToString,
@@ -102,6 +107,12 @@ class AppServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def VerifyPassword(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Login(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -166,6 +177,11 @@ def add_AppServiceServicer_to_server(servicer, server):
                     servicer.VerifyPassword,
                     request_deserializer=proto_dot_app__pb2.VerifyPasswordRequest.FromString,
                     response_serializer=proto_dot_app__pb2.VerifyPasswordResponse.SerializeToString,
+            ),
+            'Login': grpc.unary_unary_rpc_method_handler(
+                    servicer.Login,
+                    request_deserializer=proto_dot_app__pb2.LoginRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.LoginResponse.SerializeToString,
             ),
             'DeleteAccount': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteAccount,
@@ -284,6 +300,33 @@ class AppService(object):
             '/chat.AppService/VerifyPassword',
             proto_dot_app__pb2.VerifyPasswordRequest.SerializeToString,
             proto_dot_app__pb2.VerifyPasswordResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Login(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/chat.AppService/Login',
+            proto_dot_app__pb2.LoginRequest.SerializeToString,
+            proto_dot_app__pb2.LoginResponse.FromString,
             options,
             channel_credentials,
             insecure,
