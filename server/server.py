@@ -456,6 +456,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                         with self.db_connection:
                             cursor = self.db_connection.cursor()
                             cursor.execute("DELETE FROM registry WHERE pid = ?", (pid,))
+                        # TODO: scream for help to the load balancer
             time.sleep(config.HEARTBEAT_INTERVAL)
 
     def heartbeat_start(self):
@@ -463,13 +464,6 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         Start heartbeat loop.
         """
         threading.Thread(target=self.heartbeat_loop, daemon=True).start()
-
-    # ++++++++++++ GRPC Functions: Leader ++++++++++++ #
-    def leader_election(self):
-        """
-        Call load balancer to determine new leader.
-        """
-        pass
 
 
 # ++++++++++++++ Communication Functions ++++++++++++++ #
