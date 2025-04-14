@@ -1,4 +1,4 @@
-# server_comms.py
+# server.py
 
 
 # ++++++++ Imports and Installs ++++++++ #
@@ -348,6 +348,9 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                         INSERT INTO broadcasts (broadcast_id, recipient_id, sender_id, amount_requested, status)
                         VALUES (?, ?, ?, ?, 2)
                     """, (new_id, recipient, sender, quantity))
+                    # 0: denied
+                    # 1: approved
+                    # 2: pending
                 
                     # If recipient is online, push broadcast to their queue
                     with self.lock:
@@ -361,6 +364,8 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 response = app_pb2.GenericResponse(success=True, message="Broadcast sent")
 
                 # TODO: replicate operation
+
+                return response
         except Exception as e:
             print(f"[SERVER {self.pid}] Broadcast Exception: {e}")
             return app_pb2.GenericResponse(success=False, message="Broadcast error")

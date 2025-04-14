@@ -4,10 +4,10 @@
 # +++++++++++++ Imports and Installs +++++++++++++ #
 import os
 import sys
-import client
+from client import client
 import tkinter as tk
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 
 # ++++++++++++  Variables: Client Data  ++++++++++++ #
@@ -43,7 +43,7 @@ def button_stats_numdogs(delta, gui_label):
     """
     global data
     data['num_dogs'] = data['num_dogs'] + delta
-    gui_label.config(text=f"Capacity: {data["capacity"]}\nCurrent No. Dogs: {data['num_dogs']}")
+    gui_label.config(text=f"Capacity: {data['capacity']}\nCurrent No. Dogs: {data['num_dogs']}")
     pass
 
 def button_enter_login(user, pwd, region, is_new):
@@ -57,6 +57,9 @@ def button_enter_login(user, pwd, region, is_new):
     app_client = client.AppClient(region)
     if is_new:
         status, uuid = app_client.create_account(username=user, region=region, pwd_hash=pwd)
+        if not status:
+            messagebox.showerror("Error", "Username already exists.")
+            return
         assert(status)
         # NOTE: all are correct except the last 3, i'll just make those empty those later
         data = {
@@ -72,6 +75,9 @@ def button_enter_login(user, pwd, region, is_new):
         }
     else:
         status = app_client.verify_password(username=user, pwd_hash=pwd)
+        if not status:
+            messagebox.showerror("Error", "Invalid username or password.")
+            return
         assert(status)
         response = app_client.login(username=user, pwd_hash=pwd)
         data = {
@@ -224,7 +230,8 @@ def load_main_frame(data):
     menu_subframe.grid(row=0, column=0, rowspan=6, sticky='nsew', padx=5, pady=5)
     
     # Part 1: account login/logout labels and buttons
-    tk.Label(menu_subframe, text=f"Shelter: {data["username"]}", fg="white", bg="gray20", font=('Arial', 12)).pack(pady=10)
+    tk.Label(menu_subframe, text=f"Shelter: {data['username']}", fg="white", bg="gray20", font=('Arial', 12)).pack(pady=10)
+    tk.Label(menu_subframe, text=f"Region: {data['region']}", fg="white", bg="gray20", font=('Arial', 12)).pack(pady=10)
     tk.Button(menu_subframe, text="Logout", command=button_logout).pack(pady=5)
     tk.Button(menu_subframe, text="Delete Account", command=button_delete_account).pack(pady=5)
     
@@ -236,7 +243,7 @@ def load_main_frame(data):
             stats_subframe.pack(pady=5)
     tk.Button(menu_subframe, text="Statistics", command=toggle_stats).pack(pady=5)
     stats_subframe = tk.Frame(menu_subframe)
-    stats_label = tk.Label(stats_subframe, text=f"Capacity: {data["capacity"]}\nCurrent No. Dogs: {data["num_dogs"]}")
+    stats_label = tk.Label(stats_subframe, text=f"Capacity: {data['capacity']}\nCurrent No. Dogs: {data['num_dogs']}")
     stats_label.pack()
     tk.Button(stats_subframe, text="+", command=lambda: button_stats_numdogs(1, stats_label)).pack()
     tk.Button(stats_subframe, text="-", command=lambda: button_stats_numdogs(-1, stats_label)).pack()
@@ -252,6 +259,7 @@ def load_main_frame(data):
     broadcast_subframe.grid(row=0, column=2, sticky='nsew', padx=5, pady=5)
     tk.Label(broadcast_subframe, text="Broadcast Request", bg="gray20", fg="white", font=("Helvetica", 14, "bold")).pack(pady=5)
     entry = tk.Entry(broadcast_subframe)
+    tk.Label(broadcast_subframe, text="Quantity to send: ", fg="white", bg="gray20").pack(side='left', padx=5, pady=5)
     entry.pack(side='left', padx=5, pady=5)
     tk.Button(broadcast_subframe, text="Send").pack(side='left', padx=5, pady=5)
     

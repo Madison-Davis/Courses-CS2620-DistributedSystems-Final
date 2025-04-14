@@ -33,9 +33,6 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
         self.port = config.LB_BASE_PORT + self.pid             # int
         self.addr = str(self.host) + ":" + str(self.port)   # str
         # load balancer database
-        os.makedirs(database_folder, exist_ok=True)  
-        self.db_name = os.path.join(database_folder, f"lb_pid{self.pid}.db")
-        self.db_connection = sqlite3.connect(self.db_name, check_same_thread=False)
         self.initialize_database()
 
     # ++++++++++++++ Data Functions ++++++++++++++ #
@@ -43,19 +40,23 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
         """
         Creates necessary tables
         """
+        os.makedirs(database_folder, exist_ok=True)  
+        self.db_name = os.path.join(database_folder, f"lb_pid{self.pid}.db")
+        self.db_connection = sqlite3.connect(self.db_name, check_same_thread=False)
+        
         # TODO: when we make more load balancers, keep the table (ie only create if not existing)
         with self.db_connection:
             cursor = self.db_connection.cursor()
-            cursor.execute('DROP TABLE IF EXISTS regions')
-            cursor.execute('DROP TABLE IF EXISTS servers')
+            # cursor.execute('DROP TABLE IF EXISTS regions')
+            # cursor.execute('DROP TABLE IF EXISTS servers')
             cursor.execute('''
-            CREATE TABLE regions (
+            CREATE TABLE IF NOT EXISTS regions (
                 region_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 server_pid INTEGER NOT NULL
             )
             ''')
             cursor.execute('''
-            CREATE TABLE servers (
+            CREATE TABLE IF NOT EXISTS servers (
                 server_pid INTEGER PRIMARY KEY AUTOINCREMENT,
                 server_addr TEXT NOT NULL,
                 num_clients INTEGER NOT NULL,
@@ -81,13 +82,13 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
         try:
             with self.db_connection:
                 cursor = self.db_connection.cursor()
-                region = request.region if request.region != -1 else 1
-                cursor.execute("SELECT server_pid FROM regions where region_id = ?", (region,))
+                region = request.region if request.region != -1 else 0
+                cursor.execute("SELECT server_pid FROM regions WHERE region_id = ?", (region,))
                 server_pid = cursor.fetchone()
                 if not server_pid:
                     return app_pb2.GetServerResponse(address="",success=False,message="server_pid not found in regions table")
                 server_pid = server_pid[0]
-                cursor.execute("SELECT server_addr FROM servers where server_pid = ?", (server_pid,))
+                cursor.execute("SELECT server_addr FROM servers WHERE server_pid = ?", (server_pid,))
                 server_addr = cursor.fetchone()
                 if not server_addr:
                     return app_pb2.GetServerResponse(address="", success=False, message="server_addr not found in servers table")

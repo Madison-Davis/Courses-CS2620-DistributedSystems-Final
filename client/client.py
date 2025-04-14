@@ -143,7 +143,7 @@ class AppClient:
         """
         Fetch the new leader's address and reinitialize the connection.
         """
-        new_leader = self.get_region_server()
+        new_leader = self.get_region_server()  # TODO: doesn't this need a region as input?
         if new_leader:
             print(f"[CLIENT] New leader found: {new_leader}.  Reconnecting...")
             # Update channel and stub with the new leader address.
