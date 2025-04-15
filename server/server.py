@@ -339,7 +339,11 @@ class AppService(app_pb2_grpc.AppServiceServicer):
 
                 # Get the broadcast ID
                 cursor.execute("SELECT MAX(broadcast_id) AS max_id FROM broadcasts")
-                new_id = cursor.fetchone()[0] + 1
+                max_id = cursor.fetchone()
+                if max_id is None:
+                    new_id = 0
+                else:
+                    new_id = max_id + 1
 
                 # Store broadcasts
                 for user in users:
