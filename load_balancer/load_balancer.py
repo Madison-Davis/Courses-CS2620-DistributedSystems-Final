@@ -69,7 +69,53 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
 
     # ++++++++++  Functions: Server-Handling  ++++++++++ #    
     def InformServerDead(self, request, context):
-        pass
+        with self.db_connection:
+            cursor = self.db_connection.cursor()
+            # Mark the server as inactive in this load balancer's database
+            dead_pid = request.pid
+            cursor.execute("UPDATE servers SET server_status = 0 WHERE server_pid = ?", (dead_pid))
+
+            # Get active server with least number of clients
+            cursor.execute("SELECT server_pid FROM servers WHERE server_status = 1 ORDER BY num_clients ASC LIMIT 1")
+            new_server_pid = cursor.fetchone()
+
+            # Have this server take over the dead server's region(s)
+            cursor.execute("SELECT region_id FROM regions WHERE server_pid = ?", (dead_pid))
+            region_ids = cursor.fetchall()
+            for region_id in region_ids:
+                cursor.execute("UPDATE regions SET server_pid = ? WHERE region_id = ?", (new_server_pid, region_id))
+
+            # TODO: replicate this deletion on all load balancers
+
+            # Prepare a dictionary of all known server info to send to the servers 
+            # in order to inform them that one has died
+            # Serialize the dictionary
+            cursor.execute("SELECT server_pid FROM servers")
+            pids = cursor.fetchall()
+            cursor.execute("SELECT server_addr FROM servers")
+            addrs = cursor.fetchall()
+            server_table = {
+                "pid": pids,
+                "addr": addrs,
+            }
+            server_table = json.dumps(server_table)
+            update_request = app_pb2.UpdateExistingServerRequest(servers=server_table)
+
+            # Send the update to all servers besides dead ones
+            sql_database = ""
+            got_a_response = True
+            # Don't try to communicate with dead servers
+            cursor.execute("SELECT server_pid, server_addr FROM servers WHERE server_status = 1")
+            for pid, addr in cursor.fetchall():
+                # Update all the servers
+                with grpc.insecure_channel(addr) as channel:
+                    stub = app_pb2_grpc.AppServiceStub(channel)
+                    response = stub.UpdateExistingServer(update_request)
+                    if not response.success:
+                        print(f"[SERVER {self.pid}] Update to replica {pid} failed: {response.sql_database}")
+                    elif got_a_response:
+                        sql_database = response.sql_database
+        # pass
 
     def GetServer(self, request, context):
         """
@@ -147,7 +193,8 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
                 got_a_response = True
                 with self.db_connection:
                     cursor = self.db_connection.cursor()
-                    cursor.execute("SELECT server_pid, server_addr FROM servers")
+                    # Don't try to communicate with dead servers
+                    cursor.execute("SELECT server_pid, server_addr FROM servers WHERE server_status = 1")
                     for pid, addr in cursor.fetchall():
                         # Do NOT do the newly created server request.pid
                         # They'll update themselves later
