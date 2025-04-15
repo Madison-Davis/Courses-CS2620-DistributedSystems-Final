@@ -81,7 +81,7 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
         try:
             with self.db_connection:
                 cursor = self.db_connection.cursor()
-                region = request.region if request.region != -1 else 0
+                region = request.region
                 cursor.execute("SELECT server_pid FROM regions WHERE region_id = ?", (region,))
                 server_pid = cursor.fetchone()
                 if server_pid is None:

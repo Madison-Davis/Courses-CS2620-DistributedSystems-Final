@@ -13,6 +13,7 @@ service AppService {
     rpc ReplicateServer(ReplicationRequest) returns (GenericResponse);
     rpc Heartbeat(HeartbeatRequest) returns (GenericResponse);
     rpc UpdateExistingServer(UpdateExistingServerRequest) returns (UpdateExistingServerResponse);
+    rpc GetRegion(GetRegionRequest) returns (GetRegionResponse);
 }
 
 service AppLoadBalancer {
@@ -57,6 +58,14 @@ message LoginResponse {
     Account account_info = 3;
     repeated Broadcast broadcasts_sent = 4;
     repeated Broadcast broadcasts_recv = 5;
+}
+
+message GetRegionRequest {
+    string username = 1;
+}
+
+message GetRegionResponse {
+    int32 region = 1;
 }
 
 message Account {

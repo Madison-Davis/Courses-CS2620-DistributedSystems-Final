@@ -54,8 +54,8 @@ def button_enter_login(user, pwd, region, is_new):
     """
     # populate data {} based on if they are new user or returning
     global data, app_client
-    app_client = client.AppClient(region)
     if is_new:
+        app_client = client.AppClient(region)
         status, uuid = app_client.create_account(username=user, region=region, pwd_hash=pwd)
         if not status:
             messagebox.showerror("Error", "Username already exists.")
@@ -74,6 +74,7 @@ def button_enter_login(user, pwd, region, is_new):
             "broadcasts_recv" : []
         }
     else:
+        app_client = client.AppClient(region, user)
         status = app_client.verify_password(username=user, pwd_hash=pwd)
         if not status:
             messagebox.showerror("Error", "Invalid username or password.")

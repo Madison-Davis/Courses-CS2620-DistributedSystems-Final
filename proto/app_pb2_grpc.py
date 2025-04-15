@@ -84,6 +84,11 @@ class AppServiceStub(object):
                 request_serializer=proto_dot_app__pb2.UpdateExistingServerRequest.SerializeToString,
                 response_deserializer=proto_dot_app__pb2.UpdateExistingServerResponse.FromString,
                 _registered_method=True)
+        self.GetRegion = channel.unary_unary(
+                '/chat.AppService/GetRegion',
+                request_serializer=proto_dot_app__pb2.GetRegionRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.GetRegionResponse.FromString,
+                _registered_method=True)
 
 
 class AppServiceServicer(object):
@@ -149,6 +154,12 @@ class AppServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetRegion(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_AppServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -201,6 +212,11 @@ def add_AppServiceServicer_to_server(servicer, server):
                     servicer.UpdateExistingServer,
                     request_deserializer=proto_dot_app__pb2.UpdateExistingServerRequest.FromString,
                     response_serializer=proto_dot_app__pb2.UpdateExistingServerResponse.SerializeToString,
+            ),
+            'GetRegion': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetRegion,
+                    request_deserializer=proto_dot_app__pb2.GetRegionRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.GetRegionResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -473,6 +489,33 @@ class AppService(object):
             '/chat.AppService/UpdateExistingServer',
             proto_dot_app__pb2.UpdateExistingServerRequest.SerializeToString,
             proto_dot_app__pb2.UpdateExistingServerResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetRegion(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/chat.AppService/GetRegion',
+            proto_dot_app__pb2.GetRegionRequest.SerializeToString,
+            proto_dot_app__pb2.GetRegionResponse.FromString,
             options,
             channel_credentials,
             insecure,

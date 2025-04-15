@@ -16,11 +16,11 @@ from proto import app_pb2_grpc
 
 # ++++++++++ Class Definition ++++++++++ #
 class AppClient:
-    def __init__(self, region):
+    def __init__(self, region, username=None):
         """
         Establish channel and service stub.
         """
-        self.server_addr = self.get_region_server(region)
+        self.server_addr = self.get_region_server(region, username)
         self.channel = grpc.insecure_channel(self.server_addr)
         self.stub = app_pb2_grpc.AppServiceStub(self.channel)
         print(f"[CLIENT] Connected to server {self.server_addr}")
@@ -155,11 +155,37 @@ class AppClient:
             print("[CLIENT] Could not get the new leader. Please try again later.")
             return False
 
-    def get_region_server(self, region):
+
+    def get_region_server(self, region, username=None):
         """
         Go through the list of potential load balancers (one leader, many replicas)
         If a load balancer responds, ask which server this client should talk to
         """
+        # If username is provided, this means we need to find the region for the existing user
+        # Find a server that exists and ask them for the user's stored region
+        region_found = False
+        if username:
+            for pid in range(config.SERVER_PID_RANGE[0], config.SERVER_PID_RANGE[1]+1):
+                for host in config.SERVER_HOSTS:
+                    addr = f"{host}:{config.SERVER_BASE_PORT+pid}"
+                    print(f"[CLIENT] Trying To Contact a Server at Addr: {addr}")
+                    try:
+                        with grpc.insecure_channel(addr) as channel:
+                            stub = app_pb2_grpc.AppServiceStub(channel)
+                            request = app_pb2.GetRegionRequest(username=username)
+                            response = stub.GetRegion(request, timeout=2)
+                            region = response.region
+                            region_found = True
+                            print("REGION FOUND AS ", region)
+                            break
+                    except Exception as e:
+                        print(f'[CLIENT] Exception: get_region_server find region {e}')
+                        continue
+                    if region_found:
+                        break 
+                if region_found:
+                    break
+        
         # Determine where to begin looking for range of leaders
         # If first-time, start at 0
         # If new leader, it will be > old leader's pid

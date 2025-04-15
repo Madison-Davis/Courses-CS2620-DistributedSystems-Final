@@ -434,6 +434,19 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         except Exception as e:
             print(f"[SERVER {self.pid}] ApproveOrDeny Exception: {e}")
             return app_pb2.GenericResponse(success=False, message="ApproveOrDeny error")
+        
+    def GetRegion(self, request, context):
+        user = request.username
+        try:
+            with self.db_connection:
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT region FROM accounts WHERE username = ?", (user,))
+                region = cursor.fetchone()[0]
+                print("REGION:", region)
+                return app_pb2.GetRegionResponse(region=region) 
+        except Exception as e:
+            print(f"[SERVER {self.pid}] GetRegion Exception: {e}")
+            return app_pb2.GenericResponse(success=False, message="ApproveOrDeny error")
 
 
     # +++++++++++ GRPC Functions: Replication +++++++++++ #
