@@ -4,11 +4,13 @@
 # +++++++++++++ Imports and Installs +++++++++++++ #
 import os
 import sys
-from client import client
-from config import config
+import threading
 import tkinter as tk
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from tkinter import ttk, messagebox
+from client import client_app
+from config import config
+
 
 
 # ++++++++++++  Variables: Client Data  ++++++++++++ #
@@ -36,7 +38,25 @@ main_frame_stats_toggled = False
 # NOTE: for the shelter location dots we can just make like a random number generator for a new user
 
 
+# +++++++++++++ Helper Functions: Dynamic GUI +++++++++++++ #
+def update_broadcast_callback(incoming_request):
+    """ Updates the GUI inbox dynamically when a new message arrives. """
+    global db_user_data
+    data["broadcasts_recv"].append(incoming_request)
+    gui.after(100, load_main_frame, data)
+
+
 # ++++++++++++ Helper Functions: Button Presses ++++++++++++ #
+def button_clicked_send(quantity):
+    """
+    When the broadcast 'send' button is clicked.
+    """
+    sender = data["username"]
+    region = int(data["region"])
+    quantity = int(quantity)
+    status = app_client.broadcast(sender, region, quantity)
+    print(status)
+
 def button_stats_numdogs(delta, gui_label):
     """
     User decided to increment/decrement # of dogs they have.
@@ -55,11 +75,12 @@ def button_enter_login(user, pwd, region, is_new):
     """
     # populate data {} based on if they are new user or returning
     global data, app_client
+    region = int(region)
     if region not in config.SERVER_REGIONS:
         messagebox.showerror("Error", f"Valid regions: {config.SERVER_REGIONS}")
         return
     if is_new:
-        app_client = client.AppClient(region)
+        app_client = client_app.AppClient(region)
         status, uuid = app_client.create_account(username=user, region=region, pwd_hash=pwd)
         if not status:
             messagebox.showerror("Error", "Username already exists.")
@@ -78,7 +99,7 @@ def button_enter_login(user, pwd, region, is_new):
             "broadcasts_recv" : []
         }
     else:
-        app_client = client.AppClient(region, user)
+        app_client = client_app.AppClient(region, user)
         status = app_client.verify_password(username=user, pwd_hash=pwd)
         if not status:
             messagebox.showerror("Error", "Invalid username or password.")
@@ -96,6 +117,13 @@ def button_enter_login(user, pwd, region, is_new):
             "broadcasts_sent" : [] if response.broadcasts_sent is None else response.broadcasts_sent,
             "broadcasts_recv" : [] if response.broadcasts_recv is None else response.broadcasts_recv
         }
+
+    # set up a real-time broadcast thread
+    listener_thread = threading.Thread(target=app_client.receive_broadcast, 
+                                       args=(data["uuid"], update_broadcast_callback,),
+                                       daemon=True)
+    listener_thread.start()
+
     # load main frame
     login_frame.pack_forget()
     load_main_frame(data)
@@ -266,7 +294,7 @@ def load_main_frame(data):
     entry = tk.Entry(broadcast_subframe)
     tk.Label(broadcast_subframe, text="Quantity to send: ", fg="white", bg="gray20").pack(side='left', padx=5, pady=5)
     entry.pack(side='left', padx=5, pady=5)
-    tk.Button(broadcast_subframe, text="Send").pack(side='left', padx=5, pady=5)
+    tk.Button(broadcast_subframe, text="Send", command=lambda:button_clicked_send(entry.get())).pack(side='left', padx=5, pady=5)
     
     # Row 1: sent-out broadcasts
     sent_out_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1, relief='solid', bg="gray20")

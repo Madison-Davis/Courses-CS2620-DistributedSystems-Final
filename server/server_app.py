@@ -37,6 +37,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         # server database (premature; sets itself up after get_pid)
         self.db_name = None
         self.db_connection = None
+        self.lock = threading.Lock() 
         # server setup
         self.region = region
         self.pid = self.get_pid(host)
@@ -46,7 +47,6 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         # server data
         self.active_users = {}                  # dictionary to store active user streams
         self.message_queues = {}                # store queues for active users
-        # server database
 
 
     # ++++++++++++++ Data Functions ++++++++++++++ #

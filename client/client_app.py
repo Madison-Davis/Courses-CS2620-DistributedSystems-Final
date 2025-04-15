@@ -105,7 +105,7 @@ class AppClient:
         """
         print("Listening for broadcasts...")
         try:
-            for response in self.stub.ReceiveBroadcastStream(app_pb2.ReceiveBroadcastRequest(uuid=uuid)):
+            for response in self.stub.ReceiveBroadcastStream(app_pb2.ReceiveBroadcastRequest(uuid=int(uuid))):
                 broadcast = app_pb2.Broadcast(
                     broadcast_id=response.broadcast_id,
                     recipient_id=response.recipient_id,
