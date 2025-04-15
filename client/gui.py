@@ -5,6 +5,7 @@
 import os
 import sys
 from client import client
+from config import config
 import tkinter as tk
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from tkinter import ttk, messagebox
@@ -54,6 +55,9 @@ def button_enter_login(user, pwd, region, is_new):
     """
     # populate data {} based on if they are new user or returning
     global data, app_client
+    if region not in config.SERVER_REGIONS:
+        messagebox.showerror("Error", f"Valid regions: {config.SERVER_REGIONS}")
+        return
     if is_new:
         app_client = client.AppClient(region)
         status, uuid = app_client.create_account(username=user, region=region, pwd_hash=pwd)
