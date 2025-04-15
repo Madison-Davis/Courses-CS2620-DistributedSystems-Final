@@ -40,7 +40,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         # server setup
         self.region = region
         self.pid = self.get_pid(host)
-        self.port = config.SERVER_BASE_PORT + self.pid
+        self.port = config.SERVER_BASE_PORT + int(self.pid)
         self.addr = str(host) + ":" + str(self.port)
         self.IS_LEADER = True # NOTE: not really needed now
         # server data
