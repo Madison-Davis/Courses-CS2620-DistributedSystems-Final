@@ -339,7 +339,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
 
                 # Get the broadcast ID
                 cursor.execute("SELECT MAX(broadcast_id) AS max_id FROM broadcasts")
-                max_id = cursor.fetchone()
+                max_id = cursor.fetchone()[0]
                 if max_id is None:
                     new_id = 0
                 else:
@@ -358,6 +358,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 
                     # If recipient is online, push broadcast to their queue
                     with self.lock:
+                        print(self.active_users, recipient)
                         if recipient in self.active_users:
                             self.message_queues[recipient].put(app_pb2.ReceiveBroadcastResponse(
                                 sender=sender,
