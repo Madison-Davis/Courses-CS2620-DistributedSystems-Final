@@ -42,7 +42,11 @@ main_frame_stats_toggled = False
 def update_broadcast_callback(incoming_request):
     """ Updates the GUI inbox dynamically when a new message arrives. """
     global db_user_data
-    data["broadcasts_recv"].append(incoming_request)
+    print("I GOT HERE [B]")
+    print("\n", "STUFF", incoming_request, "\n")
+    sender_shelter = incoming_request.sender_username
+    dogs_requested = incoming_request.amount_requested
+    data["broadcasts_recv"].append([sender_shelter, dogs_requested])
     gui.after(100, load_main_frame, data)
 
 
@@ -51,10 +55,10 @@ def button_clicked_send(quantity):
     """
     When the broadcast 'send' button is clicked.
     """
-    sender = data["username"]
+    sender_id = data["uuid"]
     region = int(data["region"])
     quantity = int(quantity)
-    status = app_client.broadcast(sender, region, quantity)
+    status = app_client.broadcast(sender_id, region, quantity)
     print(status)
 
 def button_stats_numdogs(delta, gui_label):

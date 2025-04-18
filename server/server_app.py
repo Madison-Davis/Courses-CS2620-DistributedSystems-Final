@@ -46,7 +46,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         self.IS_LEADER = True # NOTE: not really needed now
         # server data
         self.active_users = {}                  # dictionary to store active user streams
-        self.message_queues = {}                # store queues for active users
+        self.broadcast_queues = {}                # store queues for active users
 
 
     # ++++++++++++++ Data Functions ++++++++++++++ #
@@ -207,8 +207,8 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 self.active_users[uuid] = context
             else:
                 self.active_users[uuid] = ""
-            if uuid not in self.message_queues:
-                self.message_queues[uuid] = queue.Queue()
+            if uuid not in self.broadcast_queues:
+                self.broadcast_queues[uuid] = queue.Queue()
             # TODO: replicate operation across all other possible servers
             #self.replicate_to_replicas("CreateAccount", request)
             return response
@@ -271,22 +271,24 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                     # Grab boadcast info, which comes in two forms: received or sent-out
                     cursor.execute("""SELECT * FROM broadcasts WHERE recipient_id = ?""", (uuid,))
                     broadcasts_recv = [
-                        app_pb2.Broadcast(
+                        app_pb2.BroadcastObject(
                             broadcast_id=row[0],
                             recipient_id=row[1],
-                            sender_id=row[2],
-                            amount_requested=row[3],
-                            status=row[4]
+                            sender_username = row[2],
+                            sender_id=row[3],
+                            amount_requested=row[4],
+                            status=row[5]
                         ) for row in cursor.fetchall()
                     ]
                     cursor.execute("""SELECT * FROM broadcasts WHERE sender_id = ?""", (uuid,))
                     broadcasts_sent = [
-                        app_pb2.Broadcast(
+                        app_pb2.BroadcastObject(
                             broadcast_id=row[0],
                             recipient_id=row[1],
-                            sender_id=row[2],
-                            amount_requested=row[3],
-                            status=row[4]
+                            sender_username = row[2],
+                            sender_id=row[3],
+                            amount_requested=row[4],
+                            status=row[5]
                         ) for row in cursor.fetchall()
                     ]
                     # Return all of this info successfully                 
@@ -326,7 +328,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         Return: GenericResponse (success, message)
         """
         # NOTE: we'll wanna save the broadcast into the server!
-        sender = request.sender
+        sender_id = request.sender_id
         region = request.region
         quantity = request.quantity
 
@@ -335,8 +337,12 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 cursor = self.db_connection.cursor()
 
                 # Get a list of all users to send this broadcast to
-                cursor.execute("SELECT username FROM accounts WHERE region = ? AND username != ?", (region, sender,))
+                cursor.execute("SELECT uuid FROM accounts WHERE region = ? AND uuid != ?", (region, sender_id,))
                 users = cursor.fetchall()
+
+                # Get our own username
+                cursor.execute("SELECT username FROM accounts WHERE region = ? AND uuid = ?", (region, sender_id,))
+                sender_username = cursor.fetchone()[0]
 
                 # Get the broadcast ID
                 cursor.execute("SELECT MAX(broadcast_id) AS max_id FROM broadcasts")
@@ -348,29 +354,30 @@ class AppService(app_pb2_grpc.AppServiceServicer):
 
                 # Store broadcasts
                 for user in users:
-                    recipient = user[0]
+                    recipient_id = user[0]
                     cursor.execute("""
                         INSERT INTO broadcasts (broadcast_id, recipient_id, sender_id, amount_requested, status)
                         VALUES (?, ?, ?, ?, 2)
-                    """, (new_id, recipient, sender, quantity))
+                    """, (new_id, recipient_id, sender_id, quantity))
                     # 0: denied
                     # 1: approved
                     # 2: pending
                 
                     # If recipient is online, push broadcast to their queue
                     with self.lock:
-                        print(self.active_users, recipient)
-                        if recipient in self.active_users:
-                            self.message_queues[recipient].put(app_pb2.ReceiveBroadcastResponse(
-                                sender=sender,
-                                region=region,
-                                quantity=quantity
+                        print(self.active_users, recipient_id)
+                        if recipient_id in self.active_users:
+                            self.broadcast_queues[recipient_id].put(app_pb2.BroadcastObject(
+                                broadcast_id = new_id,
+                                recipient_id = recipient_id,
+                                sender_username = sender_username,
+                                sender_id = sender_id,
+                                amount_requested = quantity,
+                                status = 2
                             ))
                 
                 response = app_pb2.GenericResponse(success=True, message="Broadcast sent")
-
                 # TODO: replicate operation
-
                 return response
         except Exception as e:
             print(f"[SERVER {self.pid}] Broadcast Exception: {e}")
@@ -386,16 +393,16 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         
         # Ensure the user has a queue
         with self.lock:
-            if uuid not in self.message_queues:
-                self.message_queues[uuid] = queue.Queue()
+            if uuid not in self.broadcast_queues:
+                self.broadcast_queues[uuid] = queue.Queue()
             self.active_users[uuid] = True
 
         try:
             while context.is_active():
                 try:
                     # Block until a message is available, then send it
-                    message = self.message_queues[uuid].get(timeout=5)  # 5s timeout to check if still active
-                    yield message
+                    broadcast = self.broadcast_queues[uuid].get(timeout=5)  # 5s timeout to check if still active
+                    yield broadcast
                 except queue.Empty:
                     continue  # No message yet, keep waiting
         except Exception as e:
@@ -405,7 +412,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         finally:
             with self.lock:
                 self.active_users.pop(uuid, None)    # Mark user as offline when they disconnect
-                self.message_queues.pop(uuid, None)  # Clean up queue
+                self.broadcast_queues.pop(uuid, None)  # Clean up queue
             print(f"[SERVER {self.pid}] {uuid} disconnected from message stream.")
     
     def ApproveOrDeny(self, request, context):

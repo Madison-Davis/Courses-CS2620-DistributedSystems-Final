@@ -62,7 +62,7 @@ class AppServiceStub(object):
         self.ReceiveBroadcastStream = channel.unary_stream(
                 '/chat.AppService/ReceiveBroadcastStream',
                 request_serializer=proto_dot_app__pb2.ReceiveBroadcastRequest.SerializeToString,
-                response_deserializer=proto_dot_app__pb2.ReceiveBroadcastResponse.FromString,
+                response_deserializer=proto_dot_app__pb2.BroadcastObject.FromString,
                 _registered_method=True)
         self.ApproveOrDeny = channel.unary_unary(
                 '/chat.AppService/ApproveOrDeny',
@@ -191,7 +191,7 @@ def add_AppServiceServicer_to_server(servicer, server):
             'ReceiveBroadcastStream': grpc.unary_stream_rpc_method_handler(
                     servicer.ReceiveBroadcastStream,
                     request_deserializer=proto_dot_app__pb2.ReceiveBroadcastRequest.FromString,
-                    response_serializer=proto_dot_app__pb2.ReceiveBroadcastResponse.SerializeToString,
+                    response_serializer=proto_dot_app__pb2.BroadcastObject.SerializeToString,
             ),
             'ApproveOrDeny': grpc.unary_unary_rpc_method_handler(
                     servicer.ApproveOrDeny,
@@ -380,7 +380,7 @@ class AppService(object):
             target,
             '/chat.AppService/ReceiveBroadcastStream',
             proto_dot_app__pb2.ReceiveBroadcastRequest.SerializeToString,
-            proto_dot_app__pb2.ReceiveBroadcastResponse.FromString,
+            proto_dot_app__pb2.BroadcastObject.FromString,
             options,
             channel_credentials,
             insecure,

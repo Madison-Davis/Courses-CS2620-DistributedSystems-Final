@@ -8,7 +8,7 @@ service AppService {
     rpc Login(LoginRequest) returns (LoginResponse);
     rpc DeleteAccount(DeleteAccountRequest) returns (GenericResponse);
     rpc Broadcast(BroadcastRequest) returns (GenericResponse);
-    rpc ReceiveBroadcastStream(ReceiveBroadcastRequest) returns (stream ReceiveBroadcastResponse);
+    rpc ReceiveBroadcastStream(ReceiveBroadcastRequest) returns (stream BroadcastObject);
     rpc ApproveOrDeny(ApproveOrDenyRequest) returns (GenericResponse);
     rpc ReplicateServer(ReplicationRequest) returns (GenericResponse);
     rpc Heartbeat(HeartbeatRequest) returns (GenericResponse);
@@ -56,8 +56,8 @@ message LoginResponse {
     bool success = 1;
     string message = 2;
     Account account_info = 3;
-    repeated Broadcast broadcasts_sent = 4;
-    repeated Broadcast broadcasts_recv = 5;
+    repeated BroadcastObject broadcasts_sent = 4;
+    repeated BroadcastObject broadcasts_recv = 5;
 }
 
 message GetRegionRequest {
@@ -77,12 +77,13 @@ message Account {
     string pwd_hash = 6;
 }
 
-message Broadcast {
+message BroadcastObject {
     int32 broadcast_id = 1;
     int32 recipient_id = 2;
-    int32 sender_id = 3;
-    int32 amount_requested = 4;
-    int32 status = 5;
+    string sender_username = 3;
+    int32 sender_id = 4;
+    int32 amount_requested = 5;
+    int32 status = 6;
 }
 
 message DeleteAccountRequest {
@@ -92,7 +93,7 @@ message DeleteAccountRequest {
 }
 
 message BroadcastRequest {
-    string sender = 1;
+    int32 sender_id = 1;
     int32 region = 2;
     int32 quantity = 3;
 }
@@ -102,7 +103,7 @@ message ReceiveBroadcastRequest {
 }
 
 message ReceiveBroadcastResponse {
-    string sender = 1;
+    int32 sender_id = 1;
     int32 region = 2;
     int32 quantity = 3;
 }

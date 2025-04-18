@@ -85,14 +85,14 @@ class AppClient:
         except Exception as e:
             print(f'[CLIENT] Exception: delete_account {e}')
 
-    def broadcast(self, sender, region, quantity):
+    def broadcast(self, sender_id, region, quantity):
         """
         Broadcast
         """
         try:
             with grpc.insecure_channel(self.server_addr) as channel:
                 stub = app_pb2_grpc.AppServiceStub(channel)
-                request = app_pb2.BroadcastRequest(sender=sender, region=region, quantity=quantity)
+                request = app_pb2.BroadcastRequest(sender_id=sender_id, region=region, quantity=quantity)
                 response = stub.Broadcast(request, timeout=2)
                 return response.success
         # If server does not respond, likely not alive, continue
@@ -105,15 +105,9 @@ class AppClient:
         """
         print("Listening for broadcasts...")
         try:
-            for response in self.stub.ReceiveBroadcastStream(app_pb2.ReceiveBroadcastRequest(uuid=int(uuid))):
-                broadcast = app_pb2.Broadcast(
-                    broadcast_id=response.broadcast_id,
-                    recipient_id=response.recipient_id,
-                    sender_id=response.sender_id,
-                    amount_requested=response.amount_requested,
-                    status=response.status
-                )
-
+            for broadcast in self.stub.ReceiveBroadcastStream(app_pb2.ReceiveBroadcastRequest(uuid=int(uuid))):
+                print("I GOT HERE [A]")
+                print(broadcast)
                 callback(broadcast)
         except grpc.RpcError as e:
             # Try again if disconnected from server
