@@ -11,8 +11,13 @@
 Clone the repository.
 Generate Python gRPC files: Navigate to the root project directory and run `py -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/app.proto`
 
+Run load balancer:
+`py -m load_balancer.load_balancer --host=HOST --pid=PID`
+- HOST: valid host, e.g. 127.0.0.1
+- PID: integer at least 0
+
 Run server:
-`py -m server.server --host=HOST --region=REGION`
+`py -m server.server_app --host=HOST --region=REGION`
 - HOST: valid host, e.g. 127.0.0.1
 - REGION: integer in {0, 1, 2}
 
@@ -82,7 +87,7 @@ Accounts Table
 2. username: text
 3. region: integer in {0, 1, 2}
 4. dogs: integer
-5. capacity: integer
+5. capacity: integer                    // initialized to 30
 6. pwd_hash: text
    
 Broadcasts Table
@@ -90,7 +95,7 @@ Broadcasts Table
 2. recipient_id: integer
 3. sender_id: integer
 4. amount_requested: integer
-5. status: integer in {0, 1, 2}
+5. status: integer in {0, 1, 2}         // 0: denied, 1: approved, 2: pending
 
 Registry Table
 1. pid: integer primary key

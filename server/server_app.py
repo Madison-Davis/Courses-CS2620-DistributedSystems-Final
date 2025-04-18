@@ -192,13 +192,14 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         username = request.username
         region = request.region
         pwd_hash = request.pwd_hash
+        capacity = 30
         try:
             with self.db_connection: # ensures commit or rollback
                 cursor = self.db_connection.cursor()
-                cursor.execute("SELECT 1 FROM accounts WHERE username = ?", (username,))
+                cursor.execute("SELECT 1 FROM accounts WHERE username = ? AND region = ?", (username, region,))
                 if cursor.fetchone() is not None:
                     return app_pb2.GenericResponse(success=False, message="Username already exists")
-                cursor.execute("INSERT INTO accounts (username, region, dogs, capacity, pwd_hash) VALUES (?, ?, 0, 30, ?) RETURNING uuid", (username, region, pwd_hash))
+                cursor.execute("INSERT INTO accounts (username, region, dogs, capacity, pwd_hash) VALUES (?, ?, 0, ?, ?) RETURNING uuid", (username, region, capacity, pwd_hash))
                 uuid = cursor.fetchone()[0]
                 response = app_pb2.CreateAccountResponse(uuid=uuid, success=True, message="Account created successfully")
             

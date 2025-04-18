@@ -76,7 +76,7 @@ def button_enter_login(user, pwd, region, is_new):
     # populate data {} based on if they are new user or returning
     global data, app_client
     region = int(region)
-    if region not in config.SERVER_REGIONS:
+    if region not in config.SERVER_REGIONS and region != -1:
         messagebox.showerror("Error", f"Valid regions: {config.SERVER_REGIONS}")
         return
     if is_new:
