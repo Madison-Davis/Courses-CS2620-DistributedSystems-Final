@@ -18,6 +18,11 @@ from config import config
 # Both of these will be filled once one presses login button (so no need to edit)
 app_client = None
 data = {}
+statuses = {
+    0: "Denied",
+    1: "Approved",
+    2: "Pending"
+}
 
 
 # +++++++++++++++  Variables: GUI  +++++++++++++++ #
@@ -332,7 +337,8 @@ def load_main_frame(data):
     for broadcast in data["broadcasts_recv"]:
         sender_username = broadcast.sender_username
         amount_requested = broadcast.amount_requested
-        receives_table.insert("", "end", values=(sender_username, amount_requested, "Accept", "Reject", "Pending"))
+        status = broadcast.status
+        receives_table.insert("", "end", values=(sender_username, amount_requested, "Accept", "Reject", statuses[status]))
 
     # ++++++++++ Add Frames to GUI ++++++++++ #
     gui.update()
