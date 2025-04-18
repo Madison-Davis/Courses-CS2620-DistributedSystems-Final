@@ -42,11 +42,10 @@ main_frame_stats_toggled = False
 def update_broadcast_callback(incoming_request):
     """ Updates the GUI inbox dynamically when a new message arrives. """
     global db_user_data
-    print("I GOT HERE [B]")
-    print("\n", "STUFF", incoming_request, "\n")
-    sender_shelter = incoming_request.sender_username
-    dogs_requested = incoming_request.amount_requested
-    data["broadcasts_recv"].append([sender_shelter, dogs_requested])
+    # sender_shelter = incoming_request.sender_username
+    # dogs_requested = incoming_request.amount_requested
+    # data["broadcasts_recv"].append([sender_shelter, dogs_requested])
+    data["broadcasts_recv"].append(incoming_request)
     gui.after(100, load_main_frame, data)
 
 
@@ -59,7 +58,6 @@ def button_clicked_send(quantity):
     region = int(data["region"])
     quantity = int(quantity)
     status = app_client.broadcast(sender_id, region, quantity)
-    print(status)
 
 def button_stats_numdogs(delta, gui_label):
     """
@@ -309,20 +307,32 @@ def load_main_frame(data):
     sent_outs_table.heading("Status", text="Status")
     sent_outs_table.heading("", text="Delete")
     sent_outs_table.pack(fill='both', expand=True)
-    for shelter_id, status in data["broadcasts_sent"]:
-        sent_outs_table.insert("", "end", values=(shelter_id, status, "X"))
+    for broadcast in data["broadcasts_sent"]:
+        amount = broadcast.amount_requested
+        status = broadcast.status
+        sent_outs_table.insert("", "end", values=(amount, status, "X"))
     
     # Row 2: received Broadcasts
     received_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1, relief='solid', bg="gray20")
-    received_broadcasts_frame.grid(row=3, column=2, rowspan=3, sticky='nsew', padx=5, pady=5)
+    received_broadcasts_frame.grid(row=3, column=2, rowspan=2, sticky='nsew', padx=2, pady=5)
     tk.Label(received_broadcasts_frame, text="Received Broadcasts", bg="gray20", fg="white", font=("Helvetica", 14)).pack()
-    receives_table = ttk.Treeview(received_broadcasts_frame, columns=("From", "Dogs", "Action"), show="headings")
+    receives_table = ttk.Treeview(received_broadcasts_frame, columns=("From", "Dogs", "Accept", "Reject", "Status"), show="headings")
     receives_table.heading("From", text="From Shelter")
     receives_table.heading("Dogs", text="# Dogs")
-    receives_table.heading("Action", text="Accept/Reject")
+    receives_table.heading("Accept", text="Accept")
+    receives_table.heading("Reject", text="Reject")
+    receives_table.heading("Status", text="Status")
     receives_table.pack(fill='both', expand=True)
-    for sid, dogs in data["broadcasts_recv"]:
-        receives_table.insert("", "end", values=(sid, dogs, "Yes/No"))
+    # Set column widths for receives_table (example values)
+    receives_table.column("From", width=110, minwidth=50, stretch=False)
+    receives_table.column("Dogs", width=110, minwidth=50, stretch=False)
+    receives_table.column("Accept", width=110, minwidth=50, stretch=False)
+    receives_table.column("Reject", width=110, minwidth=50, stretch=False)
+    receives_table.column("Status", width=110, minwidth=50, stretch=False)
+    for broadcast in data["broadcasts_recv"]:
+        sender_username = broadcast.sender_username
+        amount_requested = broadcast.amount_requested
+        receives_table.insert("", "end", values=(sender_username, amount_requested, "Accept", "Reject", "Pending"))
 
     # ++++++++++ Add Frames to GUI ++++++++++ #
     gui.update()

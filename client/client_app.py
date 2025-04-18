@@ -106,8 +106,6 @@ class AppClient:
         print("Listening for broadcasts...")
         try:
             for broadcast in self.stub.ReceiveBroadcastStream(app_pb2.ReceiveBroadcastRequest(uuid=int(uuid))):
-                print("I GOT HERE [A]")
-                print(broadcast)
                 callback(broadcast)
         except grpc.RpcError as e:
             # Try again if disconnected from server

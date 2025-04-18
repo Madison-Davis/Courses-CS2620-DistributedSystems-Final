@@ -92,6 +92,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             CREATE TABLE IF NOT EXISTS broadcasts (
                 broadcast_id INTEGER,
                 recipient_id INTEGER NOT NULL,
+                sender_username TEXT NOT NULL,
                 sender_id INTEGER NOT NULL,
                 amount_requested INTEGER NOT NULL,
                 status INTEGER NOT NULL CHECK(status IN (0, 1, 2))
@@ -115,8 +116,8 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             broadcasts = data.get("broadcasts", [])
             for row in broadcasts:
                 cursor.execute('''
-                    INSERT INTO broadcasts (recipient_id, sender_id, amount_requested, status)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO broadcasts (broadcast_id, recipient_id, sender_username, sender_id, amount_requested, status)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 ''', row)
 
             registry = data.get("registry", [])
@@ -340,9 +341,13 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 cursor.execute("SELECT uuid FROM accounts WHERE region = ? AND uuid != ?", (region, sender_id,))
                 users = cursor.fetchall()
 
+                print("checkpoint 1")
+
                 # Get our own username
                 cursor.execute("SELECT username FROM accounts WHERE region = ? AND uuid = ?", (region, sender_id,))
                 sender_username = cursor.fetchone()[0]
+
+                print("checkpoint 2")
 
                 # Get the broadcast ID
                 cursor.execute("SELECT MAX(broadcast_id) AS max_id FROM broadcasts")
@@ -351,17 +356,21 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                     new_id = 0
                 else:
                     new_id = max_id + 1
+                
+                print('checkpoint 3')
 
                 # Store broadcasts
                 for user in users:
                     recipient_id = user[0]
                     cursor.execute("""
-                        INSERT INTO broadcasts (broadcast_id, recipient_id, sender_id, amount_requested, status)
-                        VALUES (?, ?, ?, ?, 2)
-                    """, (new_id, recipient_id, sender_id, quantity))
+                        INSERT INTO broadcasts (broadcast_id, recipient_id, sender_username, sender_id, amount_requested, status)
+                        VALUES (?, ?, ?, ?, ?, 2)
+                    """, (new_id, recipient_id, sender_username, sender_id, quantity))
                     # 0: denied
                     # 1: approved
                     # 2: pending
+
+                    print("checkpoint 4")
                 
                     # If recipient is online, push broadcast to their queue
                     with self.lock:
