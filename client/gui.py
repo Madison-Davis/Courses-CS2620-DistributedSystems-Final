@@ -21,7 +21,8 @@ data = {}
 statuses = {
     0: "Denied",
     1: "Approved",
-    2: "Pending"
+    2: "Pending",
+    3: "Deleted"
 }
 
 
@@ -46,7 +47,7 @@ main_frame_stats_toggled = False
 # +++++++++++++ Helper Functions: Dynamic GUI +++++++++++++ #
 def update_broadcast_callback(incoming_request):
     """ Updates the GUI inbox dynamically when a new message arrives. """
-    global db_user_data
+    global data
     # sender_shelter = incoming_request.sender_username
     # dogs_requested = incoming_request.amount_requested
     # data["broadcasts_recv"].append([sender_shelter, dogs_requested])
@@ -59,10 +60,12 @@ def button_clicked_send(quantity):
     """
     When the broadcast 'send' button is clicked.
     """
+    global data
     sender_id = data["uuid"]
     region = int(data["region"])
     quantity = int(quantity)
     status = app_client.broadcast(sender_id, region, quantity)
+    load_main_frame(data)
 
 def button_stats_numdogs(delta, gui_label):
     """
@@ -118,7 +121,7 @@ def button_enter_login(user, pwd, region, is_new):
             "pwd"      : pwd,
             "uuid"     : response.account_info.uuid,
             "capacity" : response.account_info.capacity,
-            "num_dogs" : 0,
+            "num_dogs" : response.account_info.dogs,
             "region"   : response.account_info.region,
             "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
             "broadcasts_sent" : [] if response.broadcasts_sent is None else response.broadcasts_sent,
@@ -304,46 +307,221 @@ def load_main_frame(data):
     tk.Button(broadcast_subframe, text="Send", command=lambda:button_clicked_send(entry.get())).pack(side='left', padx=5, pady=5)
     
     # Row 1: sent-out broadcasts
-    sent_out_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1, relief='solid', bg="gray20")
+    sent_out_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black",
+                                        highlightthickness=1, relief='solid', bg="gray20")
     sent_out_broadcasts_frame.grid(row=1, column=2, rowspan=2, sticky='nsew', padx=5, pady=5)
-    tk.Label(sent_out_broadcasts_frame, text="Sent Broadcasts", bg="gray20", fg="white", font=("Helvetica", 14)).pack()
-    sent_outs_table = ttk.Treeview(sent_out_broadcasts_frame, columns=("ID", "Status", ""), show="headings")
-    sent_outs_table.heading("ID", text="Dogs")
-    sent_outs_table.heading("Status", text="Status")
-    sent_outs_table.heading("", text="Delete")
-    sent_outs_table.pack(fill='both', expand=True)
-    for broadcast in data["broadcasts_sent"]:
-        amount = broadcast.amount_requested
-        status = broadcast.status
-        sent_outs_table.insert("", "end", values=(amount, status, "X"))
+    tk.Label(sent_out_broadcasts_frame, text="Sent Broadcasts",
+            bg="gray20", fg="white", font=("Helvetica", 14)).pack(pady=5)
+    sent_broadcasts_container = tk.Frame(sent_out_broadcasts_frame, bg="gray20")
+    sent_broadcasts_container.pack(fill='both', expand=True)
+    load_sent_broadcasts(sent_broadcasts_container, data["broadcasts_sent"])
     
     # Row 2: received Broadcasts
-    received_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1, relief='solid', bg="gray20")
+    received_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black",
+                                         highlightthickness=1, relief='solid', bg="gray20")
     received_broadcasts_frame.grid(row=3, column=2, rowspan=2, sticky='nsew', padx=2, pady=5)
-    tk.Label(received_broadcasts_frame, text="Received Broadcasts", bg="gray20", fg="white", font=("Helvetica", 14)).pack()
-    receives_table = ttk.Treeview(received_broadcasts_frame, columns=("From", "Dogs", "Accept", "Reject", "Status"), show="headings")
-    receives_table.heading("From", text="From Shelter")
-    receives_table.heading("Dogs", text="# Dogs")
-    receives_table.heading("Accept", text="Accept")
-    receives_table.heading("Reject", text="Reject")
-    receives_table.heading("Status", text="Status")
-    receives_table.pack(fill='both', expand=True)
-    # Set column widths for receives_table (example values)
-    receives_table.column("From", width=110, minwidth=50, stretch=False)
-    receives_table.column("Dogs", width=110, minwidth=50, stretch=False)
-    receives_table.column("Accept", width=110, minwidth=50, stretch=False)
-    receives_table.column("Reject", width=110, minwidth=50, stretch=False)
-    receives_table.column("Status", width=110, minwidth=50, stretch=False)
-    for broadcast in data["broadcasts_recv"]:
-        sender_username = broadcast.sender_username
-        amount_requested = broadcast.amount_requested
-        status = broadcast.status
-        receives_table.insert("", "end", values=(sender_username, amount_requested, "Accept", "Reject", statuses[status]))
+    tk.Label(received_broadcasts_frame, text="Received Broadcasts",
+             bg="gray20", fg="white", font=("Helvetica", 14)).pack(pady=5)
+    broadcasts_container = tk.Frame(received_broadcasts_frame, bg="gray20")
+    broadcasts_container.pack(fill='both', expand=True)
+    load_received_broadcasts(broadcasts_container, data["broadcasts_recv"])
 
     # ++++++++++ Add Frames to GUI ++++++++++ #
     gui.update()
     main_frame.grid(row=0, column=0, sticky="nsew")
 
+def delete_sent_broadcast(broadcast, delete_btn):
+    """
+    Callback for when the Delete button is pressed in a sent broadcast row.
+    Insert your deletion logic here, for example calling a method on app_client,
+    then refresh the GUI.
+    """
+    global data
+    print(f"Deleted broadcast")
+    success = app_client.delete_broadcast(data["uuid"], broadcast.broadcast_id)
+    if success:
+        broadcast.status = 3
+    else:
+        messagebox.showerror("Error", f"Could not delete broadcast")
+    delete_btn.config(state="disabled")
+    response = app_client.login(username=data["username"], pwd_hash=data["pwd"])
+    data = {
+        "username" : data["username"],
+        "pwd"      : data["pwd"],
+        "uuid"     : response.account_info.uuid,
+        "capacity" : response.account_info.capacity,
+        "num_dogs" : response.account_info.dogs,
+        "region"   : response.account_info.region,
+        "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
+        "broadcasts_sent" : [] if response.broadcasts_sent is None else response.broadcasts_sent,
+        "broadcasts_recv" : [] if response.broadcasts_recv is None else response.broadcasts_recv
+    }
+    load_main_frame(data)
+
+
+def load_sent_broadcasts(container, broadcasts):
+    """
+    Clears the container and creates a header row plus rows for each sent broadcast.
+    The grid is used to align three columns:
+      Column 0: Dogs
+      Column 1: Status
+      Column 2: Delete button
+    All cell contents are centered.
+    """
+    # Clear any existing widgets in the container.
+    for widget in container.winfo_children():
+        widget.destroy()
+    container.grid_columnconfigure(0, weight=1)
+
+    # Headers frame
+    header_frame = tk.Frame(container, bg="gray30")
+    header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(5, 2))
+    for col in range(3):
+        header_frame.columnconfigure(col, weight=1, uniform="sent_cols")
+    tk.Label(header_frame, text="Dogs", bg="gray30", fg="white",
+             font=('Arial', 10, 'bold'), anchor="center")\
+        .grid(row=0, column=0, sticky="nsew", padx=15, pady=2)
+    tk.Label(header_frame, text="Status", bg="gray30", fg="white",
+             font=('Arial', 10, 'bold'), anchor="center")\
+        .grid(row=0, column=1, sticky="nsew", padx=15, pady=2)
+    tk.Label(header_frame, text="Delete", bg="gray30", fg="white",
+             font=('Arial', 10, 'bold'), anchor="center")\
+        .grid(row=0, column=2, sticky="nsew", padx=15, pady=2)
+
+    # Row for each sent broadcast
+    for row_idx, broadcast in enumerate(broadcasts, start=1):
+        row_frame = tk.Frame(container, bg="gray20")
+        row_frame.grid(row=row_idx, column=0, sticky="ew", padx=10, pady=2)
+        for col in range(3):
+            row_frame.columnconfigure(col, weight=1, uniform="sent_cols")
+        tk.Label(row_frame, text=str(broadcast.amount_requested), bg="gray20", fg="white",
+                 anchor="center")\
+            .grid(row=0, column=0, sticky="nsew", padx=15, pady=2)
+        status_text = statuses.get(broadcast.status, "Unknown")
+        tk.Label(row_frame, text=status_text, bg="gray20", fg="white",
+                 anchor="center")\
+            .grid(row=0, column=1, sticky="nsew", padx=15, pady=2)
+        is_pending = (broadcast.status == 2)
+        delete_btn = tk.Button(row_frame, text="Delete", width=8, state="normal" if is_pending else "disabled")
+        if is_pending:
+            delete_btn.config(command=lambda b=broadcast, db=delete_btn: delete_sent_broadcast(b, db))
+        delete_btn.grid(row=0, column=2, sticky="nsew", padx=15, pady=2)
+        # tk.Button(row_frame, text="Delete", width=8,
+        #           command=lambda b=broadcast: delete_sent_broadcast(b))\
+        #     .grid(row=0, column=2, sticky="nsew", padx=15, pady=2)
+
+def approve_broadcast(broadcast, approve_btn, deny_btn):
+    """
+    Callback for when the Accept button is pressed.
+    You may want to update the broadcast's status or perform an action with app_client.
+    """
+    global data
+    print(f"Accepted broadcast from {broadcast.sender_username}")
+    success = app_client.approve_or_deny(data["uuid"], broadcast.broadcast_id, 1)
+    if success:
+        broadcast.status = 1
+    else:
+        messagebox.showerror("Error", f"Could not approve broadcast")
+    approve_btn.config(state="disabled")
+    deny_btn.config(state="disabled")
+    response = app_client.login(username=data["username"], pwd_hash=data["pwd"])
+    data = {
+        "username" : data["username"],
+        "pwd"      : data["pwd"],
+        "uuid"     : response.account_info.uuid,
+        "capacity" : response.account_info.capacity,
+        "num_dogs" : response.account_info.dogs,
+        "region"   : response.account_info.region,
+        "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
+        "broadcasts_sent" : [] if response.broadcasts_sent is None else response.broadcasts_sent,
+        "broadcasts_recv" : [] if response.broadcasts_recv is None else response.broadcasts_recv
+    }
+    load_main_frame(data)
+
+def deny_broadcast(broadcast, approve_btn, deny_btn):
+    """
+    Callback for when the Reject button is pressed.
+    You may want to update the broadcast's status or perform an action with app_client.
+    """
+    global data
+    print(f"Rejected broadcast from {broadcast.sender_username}")
+    success = app_client.approve_or_deny(data["uuid"], broadcast.broadcast_id, 0)
+    if success:
+        broadcast.status = 0
+    else:
+        messagebox.showerror("Error", f"Could not deny broadcast")
+    approve_btn.config(state="disabled")
+    deny_btn.config(state="disabled")
+    response = app_client.login(username=data["username"], pwd_hash=data["pwd"])
+    data = {
+        "username" : data["username"],
+        "pwd"      : data["pwd"],
+        "uuid"     : response.account_info.uuid,
+        "capacity" : response.account_info.capacity,
+        "num_dogs" : response.account_info.dogs,
+        "region"   : response.account_info.region,
+        "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
+        "broadcasts_sent" : [] if response.broadcasts_sent is None else response.broadcasts_sent,
+        "broadcasts_recv" : [] if response.broadcasts_recv is None else response.broadcasts_recv
+    }
+    load_main_frame(data)
+
+
+def load_received_broadcasts(container, broadcasts):
+    """
+    Clear the container and dynamically create a row (as a Frame) for each broadcast.
+    Each row will include the sender's name, number of dogs, and Approve/Deny buttons.
+    """
+    # Clear any existing widgets in the container
+    for widget in container.winfo_children():
+        widget.destroy()
+    container.grid_columnconfigure(0, weight=1)
+
+    # Header frame
+    header_frame = tk.Frame(container, bg="gray30")
+    header_frame.grid(row=0, column=0, sticky="ew", padx=5, pady=(5, 2))
+    for col in range(5):
+        header_frame.columnconfigure(col, weight=1, uniform="col_width")
+    tk.Label(header_frame, text="Sender", bg="gray30", fg="white",
+             font=('Arial', 10, 'bold'), anchor="center")\
+        .grid(row=0, column=0, sticky="nsew", padx=5, pady=2)
+    tk.Label(header_frame, text="Quantity", bg="gray30", fg="white",
+             font=('Arial', 10, 'bold'), anchor="center")\
+        .grid(row=0, column=1, sticky="nsew", padx=5, pady=2)
+    tk.Label(header_frame, text="Approve", bg="gray30", fg="white",
+             font=('Arial', 10, 'bold'), anchor="center")\
+        .grid(row=0, column=2, sticky="nsew", padx=5, pady=2)
+    tk.Label(header_frame, text="Deny", bg="gray30", fg="white",
+             font=('Arial', 10, 'bold'), anchor="center")\
+        .grid(row=0, column=3, sticky="nsew", padx=5, pady=2)
+    tk.Label(header_frame, text="Status", bg="gray30", fg="white",
+             font=('Arial', 10, 'bold'), anchor="center")\
+        .grid(row=0, column=4, sticky="nsew", padx=5, pady=2)
+
+    # Row for each broadcast
+    for row_idx, broadcast in enumerate(broadcasts, start=1):
+        row_frame = tk.Frame(container, bg="gray20")
+        row_frame.grid(row=row_idx, column=0, sticky="ew", padx=5, pady=2)
+        for col in range(5):
+            row_frame.columnconfigure(col, weight=1, uniform="col_width")
+        tk.Label(row_frame, text=broadcast.sender_username, bg="gray20",
+                 fg="white", anchor="center")\
+            .grid(row=0, column=0, sticky="nsew", padx=5, pady=2)
+        tk.Label(row_frame, text=str(broadcast.amount_requested), bg="gray20",
+                 fg="white", anchor="center")\
+            .grid(row=0, column=1, sticky="nsew", padx=5, pady=2)
+        is_pending = (broadcast.status == 2)
+        approve_btn = tk.Button(row_frame, text="Approve", width=8, state="normal" if is_pending else "disabled")
+        deny_btn = tk.Button(row_frame, text="Deny", width=8, state="normal" if is_pending else "disabled")
+        if is_pending:
+            approve_btn.config(command=lambda b=broadcast, ab=approve_btn, db=deny_btn: approve_broadcast(b, ab, db))
+            deny_btn.config(command=lambda b=broadcast, ab=approve_btn, db=deny_btn: deny_broadcast(b, ab, db))
+        approve_btn.grid(row=0, column=2, sticky="nsew", padx=5, pady=2)
+        deny_btn.grid(row=0, column=3, sticky="nsew", padx=5, pady=2)
+        status_text = statuses.get(broadcast.status, "Unknown")
+        tk.Label(row_frame, text=status_text, bg="gray20", fg="white",
+                 anchor="center")\
+            .grid(row=0, column=4, sticky="nsew", padx=5, pady=2)
 
 # ++++++++++++++  Main Function  ++++++++++++++ #
 if __name__ == "__main__":

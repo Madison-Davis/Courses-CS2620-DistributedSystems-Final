@@ -8,6 +8,7 @@ service AppService {
     rpc Login(LoginRequest) returns (LoginResponse);
     rpc DeleteAccount(DeleteAccountRequest) returns (GenericResponse);
     rpc Broadcast(BroadcastRequest) returns (GenericResponse);
+    rpc DeleteBroadcast(DeleteBroadcastRequest) returns (GenericResponse);
     rpc ReceiveBroadcastStream(ReceiveBroadcastRequest) returns (stream BroadcastObject);
     rpc ApproveOrDeny(ApproveOrDenyRequest) returns (GenericResponse);
     rpc ReplicateServer(ReplicationRequest) returns (GenericResponse);
@@ -84,6 +85,11 @@ message BroadcastObject {
     int32 sender_id = 4;
     int32 amount_requested = 5;
     int32 status = 6;
+}
+
+message DeleteBroadcastRequest {
+    int32 sender_id = 1;
+    int32 broadcast_id = 2;
 }
 
 message DeleteAccountRequest {

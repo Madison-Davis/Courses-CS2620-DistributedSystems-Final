@@ -117,6 +117,20 @@ class AppClient:
                     return
             raise
 
+    def delete_broadcast(self, uuid, broadcast_id):
+        """
+        Approve or deny broadcast request
+        """
+        try:
+            with grpc.insecure_channel(self.server_addr) as channel:
+                stub = app_pb2_grpc.AppServiceStub(channel)
+                request = app_pb2.DeleteBroadcastRequest(sender_id=uuid, broadcast_id=broadcast_id)
+                response = stub.DeleteBroadcast(request, timeout=2)
+                return response.success
+        # If server does not respond, likely not alive, continue
+        except Exception as e:
+            print(f'[CLIENT] Exception: delete_broadcast {e}')
+
     def approve_or_deny(self, uuid, broadcast_id, approved):
         """
         Approve or deny broadcast request

@@ -5,7 +5,7 @@ import warnings
 
 from proto import app_pb2 as proto_dot_app__pb2
 
-GRPC_GENERATED_VERSION = '1.71.0'
+GRPC_GENERATED_VERSION = '1.70.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -57,6 +57,11 @@ class AppServiceStub(object):
         self.Broadcast = channel.unary_unary(
                 '/chat.AppService/Broadcast',
                 request_serializer=proto_dot_app__pb2.BroadcastRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
+                _registered_method=True)
+        self.DeleteBroadcast = channel.unary_unary(
+                '/chat.AppService/DeleteBroadcast',
+                request_serializer=proto_dot_app__pb2.DeleteBroadcastRequest.SerializeToString,
                 response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
                 _registered_method=True)
         self.ReceiveBroadcastStream = channel.unary_stream(
@@ -124,6 +129,12 @@ class AppServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DeleteBroadcast(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ReceiveBroadcastStream(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -186,6 +197,11 @@ def add_AppServiceServicer_to_server(servicer, server):
             'Broadcast': grpc.unary_unary_rpc_method_handler(
                     servicer.Broadcast,
                     request_deserializer=proto_dot_app__pb2.BroadcastRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
+            ),
+            'DeleteBroadcast': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteBroadcast,
+                    request_deserializer=proto_dot_app__pb2.DeleteBroadcastRequest.FromString,
                     response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
             ),
             'ReceiveBroadcastStream': grpc.unary_stream_rpc_method_handler(
@@ -353,6 +369,33 @@ class AppService(object):
             target,
             '/chat.AppService/Broadcast',
             proto_dot_app__pb2.BroadcastRequest.SerializeToString,
+            proto_dot_app__pb2.GenericResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteBroadcast(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/chat.AppService/DeleteBroadcast',
+            proto_dot_app__pb2.DeleteBroadcastRequest.SerializeToString,
             proto_dot_app__pb2.GenericResponse.FromString,
             options,
             channel_credentials,

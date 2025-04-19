@@ -95,7 +95,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 sender_username TEXT NOT NULL,
                 sender_id INTEGER NOT NULL,
                 amount_requested INTEGER NOT NULL,
-                status INTEGER NOT NULL CHECK(status IN (0, 1, 2))
+                status INTEGER NOT NULL CHECK(status IN (0, 1, 2, 3))
             )
             ''')
             cursor.execute('''
@@ -341,13 +341,9 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 cursor.execute("SELECT uuid FROM accounts WHERE region = ? AND uuid != ?", (region, sender_id,))
                 users = cursor.fetchall()
 
-                print("checkpoint 1")
-
                 # Get our own username
                 cursor.execute("SELECT username FROM accounts WHERE region = ? AND uuid = ?", (region, sender_id,))
                 sender_username = cursor.fetchone()[0]
-
-                print("checkpoint 2")
 
                 # Get the broadcast ID
                 cursor.execute("SELECT MAX(broadcast_id) AS max_id FROM broadcasts")
@@ -356,8 +352,6 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                     new_id = 0
                 else:
                     new_id = max_id + 1
-                
-                print('checkpoint 3')
 
                 # Store broadcasts
                 for user in users:
@@ -369,8 +363,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                     # 0: denied
                     # 1: approved
                     # 2: pending
-
-                    print("checkpoint 4")
+                    # 3: deleted
                 
                     # If recipient is online, push broadcast to their queue
                     with self.lock:
@@ -392,10 +385,32 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             print(f"[SERVER {self.pid}] Broadcast Exception: {e}")
             return app_pb2.GenericResponse(success=False, message="Broadcast error")
     
+    def DeleteBroadcast(self, request, context):
+        """
+        Delete Broadcast request
+        Return: GenericResponse (success, message)
+        """
+        sender_id = request.sender_id
+        broadcast_id = request.broadcast_id
+
+        try:
+            with self.db_connection:
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT status FROM broadcasts WHERE broadcast_id = ? AND sender_id = ?", (broadcast_id, sender_id,))
+                statuses = cursor.fetchall()
+                if 1 in statuses:
+                    # broadcast already was approved, cannot delete
+                    return app_pb2.GenericResponse(success=False, message="Broadcast already approved, cannot delete.")
+                cursor.execute("UPDATE broadcasts SET status = 3 WHERE broadcast_id = ? AND sender_id = ?", (broadcast_id, sender_id,))
+                return app_pb2.GenericResponse(success=True, message="Broadcast deleted.")
+        except Exception as e:
+            print(f"[SERVER {self.pid}] DeleteBroadcast Exception: {e}")
+            return app_pb2.GenericResponse(success=False, message="Broadcast error")
+    
     def ReceiveBroadcastStream(self, request, context):
         """
         Receive live broadcasts
-        Return: ReceiveBroadcastResponse (sender, quantity, region)
+        Return: Broadcast
         """
         uuid = request.uuid
         print(f"[SERVER {self.pid}] {uuid} connected to message stream.")
@@ -448,11 +463,12 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                         return app_pb2.GenericResponse(success=False, message="Exceeded capacity")
                     
                     cursor.execute("UPDATE accounts SET dogs = dogs + ?", (amount_requested,))
-                    cursor.execute("DELETE FROM broadcasts WHERE broadcast_id = ?", broadcast_id)
+                    cursor.execute("UPDATE broadcasts SET status = 1 WHERE broadcast_id = ?", (broadcast_id,))
                     # TODO: update all other clients' guis that this broadcast has been fulfilled, also remove this broadcast from current client's GUI
+                    return app_pb2.GenericResponse(success=True, message="Approved successfully")
                 else:
-                    cursor.execute("DELETE FROM broadcasts WHERE broadcast_id = ? AND recipient_id = ?", broadcast_id, uuid)
-                    # TODO: remove this broadcast from client's GUI
+                    cursor.execute("UPDATE broadcasts SET status = 0 WHERE broadcast_id = ?", (broadcast_id,))
+                    return app_pb2.GenericResponse(success=True, message="Denied successfully")
         except Exception as e:
             print(f"[SERVER {self.pid}] ApproveOrDeny Exception: {e}")
             return app_pb2.GenericResponse(success=False, message="ApproveOrDeny error")
