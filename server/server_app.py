@@ -281,7 +281,13 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                             status=row[5]
                         ) for row in cursor.fetchall()
                     ]
-                    cursor.execute("""SELECT * FROM broadcasts WHERE sender_id = ?""", (uuid,))
+                    # Note: the same broadcast may show up many times for a single sender so need to grab unique row
+                    cursor.execute("""SELECT * FROM broadcasts WHERE sender_id = ? AND rowid IN (
+                        SELECT MIN(rowid)
+                        FROM broadcasts
+                        WHERE sender_id = ?
+                        GROUP BY broadcast_id
+                    )""", (uuid, uuid,))
                     broadcasts_sent = [
                         app_pb2.BroadcastObject(
                             broadcast_id=row[0],

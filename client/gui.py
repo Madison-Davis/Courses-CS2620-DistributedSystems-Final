@@ -43,16 +43,28 @@ main_frame_stats_toggled = False
 # +++++++++++++ Helper Functions: Login/Logout +++++++++++++ #
 # NOTE: for the shelter location dots we can just make like a random number generator for a new user
 
+def reload_update_data():
+    global data
+    response = app_client.login(username=data["username"], pwd_hash=data["pwd"])
+    data = {
+        "username" : data["username"],
+        "pwd"      : data["pwd"],
+        "uuid"     : response.account_info.uuid,
+        "capacity" : response.account_info.capacity,
+        "num_dogs" : response.account_info.dogs,
+        "region"   : response.account_info.region,
+        "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
+        "broadcasts_sent" : [] if response.broadcasts_sent is None else response.broadcasts_sent,
+        "broadcasts_recv" : [] if response.broadcasts_recv is None else response.broadcasts_recv
+    }
+    load_main_frame(data)
+
 
 # +++++++++++++ Helper Functions: Dynamic GUI +++++++++++++ #
 def update_broadcast_callback(incoming_request):
     """ Updates the GUI inbox dynamically when a new message arrives. """
     global data
-    # sender_shelter = incoming_request.sender_username
-    # dogs_requested = incoming_request.amount_requested
-    # data["broadcasts_recv"].append([sender_shelter, dogs_requested])
-    data["broadcasts_recv"].append(incoming_request)
-    gui.after(100, load_main_frame, data)
+    gui.after(100, reload_update_data)
 
 
 # ++++++++++++ Helper Functions: Button Presses ++++++++++++ #
@@ -65,7 +77,7 @@ def button_clicked_send(quantity):
     region = int(data["region"])
     quantity = int(quantity)
     status = app_client.broadcast(sender_id, region, quantity)
-    load_main_frame(data)
+    reload_update_data()
 
 def button_stats_numdogs(delta, gui_label):
     """
@@ -344,19 +356,7 @@ def delete_sent_broadcast(broadcast, delete_btn):
     else:
         messagebox.showerror("Error", f"Could not delete broadcast")
     delete_btn.config(state="disabled")
-    response = app_client.login(username=data["username"], pwd_hash=data["pwd"])
-    data = {
-        "username" : data["username"],
-        "pwd"      : data["pwd"],
-        "uuid"     : response.account_info.uuid,
-        "capacity" : response.account_info.capacity,
-        "num_dogs" : response.account_info.dogs,
-        "region"   : response.account_info.region,
-        "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
-        "broadcasts_sent" : [] if response.broadcasts_sent is None else response.broadcasts_sent,
-        "broadcasts_recv" : [] if response.broadcasts_recv is None else response.broadcasts_recv
-    }
-    load_main_frame(data)
+    reload_update_data()
 
 
 def load_sent_broadcasts(container, broadcasts):
@@ -424,19 +424,7 @@ def approve_broadcast(broadcast, approve_btn, deny_btn):
         messagebox.showerror("Error", f"Could not approve broadcast")
     approve_btn.config(state="disabled")
     deny_btn.config(state="disabled")
-    response = app_client.login(username=data["username"], pwd_hash=data["pwd"])
-    data = {
-        "username" : data["username"],
-        "pwd"      : data["pwd"],
-        "uuid"     : response.account_info.uuid,
-        "capacity" : response.account_info.capacity,
-        "num_dogs" : response.account_info.dogs,
-        "region"   : response.account_info.region,
-        "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
-        "broadcasts_sent" : [] if response.broadcasts_sent is None else response.broadcasts_sent,
-        "broadcasts_recv" : [] if response.broadcasts_recv is None else response.broadcasts_recv
-    }
-    load_main_frame(data)
+    reload_update_data()
 
 def deny_broadcast(broadcast, approve_btn, deny_btn):
     """
@@ -452,19 +440,7 @@ def deny_broadcast(broadcast, approve_btn, deny_btn):
         messagebox.showerror("Error", f"Could not deny broadcast")
     approve_btn.config(state="disabled")
     deny_btn.config(state="disabled")
-    response = app_client.login(username=data["username"], pwd_hash=data["pwd"])
-    data = {
-        "username" : data["username"],
-        "pwd"      : data["pwd"],
-        "uuid"     : response.account_info.uuid,
-        "capacity" : response.account_info.capacity,
-        "num_dogs" : response.account_info.dogs,
-        "region"   : response.account_info.region,
-        "shelter_locations" : [(30, 60), (45, 120), (60, 150)],
-        "broadcasts_sent" : [] if response.broadcasts_sent is None else response.broadcasts_sent,
-        "broadcasts_recv" : [] if response.broadcasts_recv is None else response.broadcasts_recv
-    }
-    load_main_frame(data)
+    reload_update_data()
 
 
 def load_received_broadcasts(container, broadcasts):
