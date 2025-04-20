@@ -18,11 +18,19 @@ from config import config
 # Both of these will be filled once one presses login button (so no need to edit)
 app_client = None
 data = {}
-statuses = {
+
+# DO NOT edit ordering
+statuses_to_word = {
     0: "Denied",
-    1: "Approved",
-    2: "Pending",
-    3: "Deleted"
+    1: "Pending",
+    2: "Deleted",
+    3: "Approved"
+}
+statuses = {
+    "Denied": 0,
+    "Pending": 1,
+    "Deleted": 2,
+    "Approved": 3
 }
 
 
@@ -75,7 +83,11 @@ def button_clicked_send(quantity):
     global data
     sender_id = data["uuid"]
     region = int(data["region"])
+    current = int(data["num_dogs"])
     quantity = int(quantity)
+    if quantity > current:
+        messagebox.showerror("Error", "Quantity requested exceeds current inventory.")
+        return
     status = app_client.broadcast(sender_id, region, quantity)
     reload_update_data()
 
@@ -86,6 +98,7 @@ def button_stats_numdogs(delta, gui_label):
     """
     global data
     data['num_dogs'] = data['num_dogs'] + delta
+    success = app_client.change_dogs(data["uuid"], delta)
     gui_label.config(text=f"Capacity: {data['capacity']}\nCurrent No. Dogs: {data['num_dogs']}")
     pass
 
@@ -145,6 +158,24 @@ def button_enter_login(user, pwd, region, is_new):
                                        args=(data["uuid"], update_broadcast_callback,),
                                        daemon=True)
     listener_thread.start()
+
+    # set up a real-time approval thread
+    approval_thread = threading.Thread(target=app_client.receive_approval, 
+                                       args=(data["uuid"], update_broadcast_callback,),
+                                       daemon=True)
+    approval_thread.start()
+
+    # set up a real-time deletion thread
+    deletion_thread = threading.Thread(target=app_client.receive_deletion, 
+                                       args=(data["uuid"], update_broadcast_callback,),
+                                       daemon=True)
+    deletion_thread.start()
+
+    # set up a real-time denial thread
+    denial_thread = threading.Thread(target=app_client.receive_denial, 
+                                       args=(data["uuid"], update_broadcast_callback,),
+                                       daemon=True)
+    denial_thread.start()
 
     # load main frame
     login_frame.pack_forget()
@@ -321,21 +352,39 @@ def load_main_frame(data):
     # Row 1: sent-out broadcasts
     sent_out_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black",
                                         highlightthickness=1, relief='solid', bg="gray20")
-    sent_out_broadcasts_frame.grid(row=1, column=2, rowspan=2, sticky='nsew', padx=5, pady=5)
+    sent_out_broadcasts_frame.grid(row=1, column=2, sticky='nsew', padx=5, pady=5)
     tk.Label(sent_out_broadcasts_frame, text="Sent Broadcasts",
             bg="gray20", fg="white", font=("Helvetica", 14)).pack(pady=5)
-    sent_broadcasts_container = tk.Frame(sent_out_broadcasts_frame, bg="gray20")
-    sent_broadcasts_container.pack(fill='both', expand=True)
+    canvas_sent = tk.Canvas(sent_out_broadcasts_frame, bg="gray20")
+    canvas_sent.pack(side="left", fill="both", expand=True)
+    scrollbar_sent = tk.Scrollbar(sent_out_broadcasts_frame, orient="vertical", command=canvas_sent.yview)
+    scrollbar_sent.pack(side="right", fill="y")
+    canvas_sent.configure(yscrollcommand=scrollbar_sent.set)
+    sent_broadcasts_container = tk.Frame(canvas_sent, bg="gray20")
+    canvas_sent.create_window((0, 0), window=sent_broadcasts_container, anchor="nw")
+    sent_broadcasts_container.bind(
+        "<Configure>",
+        lambda event: canvas_sent.configure(scrollregion=canvas_sent.bbox("all"))
+    )
     load_sent_broadcasts(sent_broadcasts_container, data["broadcasts_sent"])
     
     # Row 2: received Broadcasts
     received_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black",
                                          highlightthickness=1, relief='solid', bg="gray20")
-    received_broadcasts_frame.grid(row=3, column=2, rowspan=2, sticky='nsew', padx=2, pady=5)
+    received_broadcasts_frame.grid(row=2, column=2, sticky='nsew', padx=5, pady=5)
     tk.Label(received_broadcasts_frame, text="Received Broadcasts",
              bg="gray20", fg="white", font=("Helvetica", 14)).pack(pady=5)
-    broadcasts_container = tk.Frame(received_broadcasts_frame, bg="gray20")
-    broadcasts_container.pack(fill='both', expand=True)
+    canvas_received = tk.Canvas(received_broadcasts_frame, bg="gray20")
+    canvas_received.pack(side="left", fill="both", expand=True)
+    scrollbar_received = tk.Scrollbar(received_broadcasts_frame, orient="vertical", command=canvas_received.yview)
+    scrollbar_received.pack(side="right", fill="y")
+    canvas_received.configure(yscrollcommand=scrollbar_received.set)
+    broadcasts_container = tk.Frame(canvas_received, bg="gray20")
+    canvas_received.create_window((0, 0), window=broadcasts_container, anchor="nw")
+    broadcasts_container.bind(
+        "<Configure>",
+        lambda event: canvas_received.configure(scrollregion=canvas_received.bbox("all"))
+    )
     load_received_broadcasts(broadcasts_container, data["broadcasts_recv"])
 
     # ++++++++++ Add Frames to GUI ++++++++++ #
@@ -352,7 +401,7 @@ def delete_sent_broadcast(broadcast, delete_btn):
     print(f"Deleted broadcast")
     success = app_client.delete_broadcast(data["uuid"], broadcast.broadcast_id)
     if success:
-        broadcast.status = 3
+        broadcast.status = statuses["Deleted"]
     else:
         messagebox.showerror("Error", f"Could not delete broadcast")
     delete_btn.config(state="disabled")
@@ -397,11 +446,11 @@ def load_sent_broadcasts(container, broadcasts):
         tk.Label(row_frame, text=str(broadcast.amount_requested), bg="gray20", fg="white",
                  anchor="center")\
             .grid(row=0, column=0, sticky="nsew", padx=15, pady=2)
-        status_text = statuses.get(broadcast.status, "Unknown")
+        status_text = statuses_to_word.get(broadcast.status, "Unknown")
         tk.Label(row_frame, text=status_text, bg="gray20", fg="white",
                  anchor="center")\
             .grid(row=0, column=1, sticky="nsew", padx=15, pady=2)
-        is_pending = (broadcast.status == 2)
+        is_pending = (broadcast.status == statuses["Pending"])
         delete_btn = tk.Button(row_frame, text="Delete", width=8, state="normal" if is_pending else "disabled")
         if is_pending:
             delete_btn.config(command=lambda b=broadcast, db=delete_btn: delete_sent_broadcast(b, db))
@@ -419,7 +468,7 @@ def approve_broadcast(broadcast, approve_btn, deny_btn):
     print(f"Accepted broadcast from {broadcast.sender_username}")
     success = app_client.approve_or_deny(data["uuid"], broadcast.broadcast_id, 1)
     if success:
-        broadcast.status = 1
+        broadcast.status = statuses["Approved"]
     else:
         messagebox.showerror("Error", f"Could not approve broadcast")
     approve_btn.config(state="disabled")
@@ -435,7 +484,7 @@ def deny_broadcast(broadcast, approve_btn, deny_btn):
     print(f"Rejected broadcast from {broadcast.sender_username}")
     success = app_client.approve_or_deny(data["uuid"], broadcast.broadcast_id, 0)
     if success:
-        broadcast.status = 0
+        broadcast.status = statuses["Denied"]
     else:
         messagebox.showerror("Error", f"Could not deny broadcast")
     approve_btn.config(state="disabled")
@@ -486,7 +535,7 @@ def load_received_broadcasts(container, broadcasts):
         tk.Label(row_frame, text=str(broadcast.amount_requested), bg="gray20",
                  fg="white", anchor="center")\
             .grid(row=0, column=1, sticky="nsew", padx=5, pady=2)
-        is_pending = (broadcast.status == 2)
+        is_pending = (broadcast.status == statuses["Pending"])
         approve_btn = tk.Button(row_frame, text="Approve", width=8, state="normal" if is_pending else "disabled")
         deny_btn = tk.Button(row_frame, text="Deny", width=8, state="normal" if is_pending else "disabled")
         if is_pending:
@@ -494,7 +543,7 @@ def load_received_broadcasts(container, broadcasts):
             deny_btn.config(command=lambda b=broadcast, ab=approve_btn, db=deny_btn: deny_broadcast(b, ab, db))
         approve_btn.grid(row=0, column=2, sticky="nsew", padx=5, pady=2)
         deny_btn.grid(row=0, column=3, sticky="nsew", padx=5, pady=2)
-        status_text = statuses.get(broadcast.status, "Unknown")
+        status_text = statuses_to_word.get(broadcast.status, "Unknown")
         tk.Label(row_frame, text=status_text, bg="gray20", fg="white",
                  anchor="center")\
             .grid(row=0, column=4, sticky="nsew", padx=5, pady=2)

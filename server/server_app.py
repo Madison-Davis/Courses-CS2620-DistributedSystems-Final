@@ -22,6 +22,13 @@ from config import config
 
 
 # ++++++++++ Global Variables ++++++++++ #
+# DO NOT change ordering
+statuses = {
+    "Denied": 0,
+    "Pending": 1,
+    "Deleted": 2,
+    "Approved": 3
+}
 
 
 # ++++++++++ Class Definition ++++++++++ #
@@ -47,6 +54,9 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         # server data
         self.active_users = {}                  # dictionary to store active user streams
         self.broadcast_queues = {}                # store queues for active users
+        self.approval_queues = {}
+        self.deletion_queues = {}
+        self.denial_queues = {}
 
 
     # ++++++++++++++ Data Functions ++++++++++++++ #
@@ -281,13 +291,21 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                             status=row[5]
                         ) for row in cursor.fetchall()
                     ]
-                    # Note: the same broadcast may show up many times for a single sender so need to grab unique row
-                    cursor.execute("""SELECT * FROM broadcasts WHERE sender_id = ? AND rowid IN (
-                        SELECT MIN(rowid)
-                        FROM broadcasts
+                    # Note: the same broadcast may show up many times for a single sender so 
+                    # need to grab unique row that corresponds to most important status 
+                    # (as ordered in global dictionary of statuses)
+                    cursor.execute("""SELECT *
+                        FROM broadcasts b1
                         WHERE sender_id = ?
-                        GROUP BY broadcast_id
-                    )""", (uuid, uuid,))
+                        AND rowid = (
+                            SELECT b2.rowid
+                            FROM broadcasts b2
+                            WHERE b2.broadcast_id = b1.broadcast_id
+                            AND b2.sender_id = ?
+                            ORDER BY b2.status DESC, b2.rowid ASC
+                            LIMIT 1
+                        );
+                        """, (uuid, uuid,))
                     broadcasts_sent = [
                         app_pb2.BroadcastObject(
                             broadcast_id=row[0],
@@ -364,12 +382,8 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                     recipient_id = user[0]
                     cursor.execute("""
                         INSERT INTO broadcasts (broadcast_id, recipient_id, sender_username, sender_id, amount_requested, status)
-                        VALUES (?, ?, ?, ?, ?, 2)
-                    """, (new_id, recipient_id, sender_username, sender_id, quantity))
-                    # 0: denied
-                    # 1: approved
-                    # 2: pending
-                    # 3: deleted
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (new_id, recipient_id, sender_username, sender_id, quantity, statuses["Pending"]))
                 
                     # If recipient is online, push broadcast to their queue
                     with self.lock:
@@ -381,7 +395,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                                 sender_username = sender_username,
                                 sender_id = sender_id,
                                 amount_requested = quantity,
-                                status = 2
+                                status = statuses["Pending"]
                             ))
                 
                 response = app_pb2.GenericResponse(success=True, message="Broadcast sent")
@@ -403,15 +417,74 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             with self.db_connection:
                 cursor = self.db_connection.cursor()
                 cursor.execute("SELECT status FROM broadcasts WHERE broadcast_id = ? AND sender_id = ?", (broadcast_id, sender_id,))
-                statuses = cursor.fetchall()
-                if 1 in statuses:
+                all_statuses = cursor.fetchall()
+                if statuses["Approved"] in all_statuses:
                     # broadcast already was approved, cannot delete
                     return app_pb2.GenericResponse(success=False, message="Broadcast already approved, cannot delete.")
-                cursor.execute("UPDATE broadcasts SET status = 3 WHERE broadcast_id = ? AND sender_id = ?", (broadcast_id, sender_id,))
+                cursor.execute("UPDATE broadcasts SET status = ? WHERE broadcast_id = ? AND sender_id = ?", (statuses["Deleted"], broadcast_id, sender_id,))
+
+                cursor.execute("SELECT recipient_id FROM broadcasts WHERE broadcast_id = ?", (broadcast_id,))
+                users = cursor.fetchall()
+
+                cursor.execute("SELECT username FROM accounts WHERE region = ? AND uuid = ?", (region, sender_id,))
+                sender_username = cursor.fetchone()[0]
+
+                cursor.execute("SELECT amount_requested FROM broadcasts WHERE broadcast_id = ?", (broadcast_id,))
+                amount_requested = cursor.fetchone()[0]
+
+                for user in users:
+                    recipient_id = user[0]
+                    cursor.execute("SELECT username FROM accounts WHERE region = ? AND uuid = ?", (region, recipient_id,))
+                    recipient_username = cursor.fetchone()[0]
+                    # If recipient is online, push broadcast to their queue
+                    with self.lock:
+                        if recipient_id in self.active_users:
+                            print("SENDING DELETION TO USER", recipient_username)
+                            self.approval_queues[recipient_id].put(app_pb2.BroadcastObject(
+                                broadcast_id = broadcast_id,
+                                recipient_id = recipient_id,
+                                sender_username = sender_username,
+                                sender_id = sender_id,
+                                amount_requested = amount_requested,
+                                status = statuses["Approved"]
+                            ))
+
                 return app_pb2.GenericResponse(success=True, message="Broadcast deleted.")
         except Exception as e:
             print(f"[SERVER {self.pid}] DeleteBroadcast Exception: {e}")
             return app_pb2.GenericResponse(success=False, message="Broadcast error")
+    
+    def ReceiveDeletionStream(self, request, context):
+        """
+        Receive live broadcast deletion
+        Return: broadcast
+        """
+        uuid = request.uuid
+        print(f"[SERVER {self.pid}] {uuid} connected to deletion stream.")
+        
+        # Ensure the user has a queue
+        with self.lock:
+            if uuid not in self.deletion_queues:
+                self.deletion_queues[uuid] = queue.Queue()
+            self.active_users[uuid] = True
+
+        try:
+            while context.is_active():
+                try:
+                    # Block until a message is available, then send it
+                    broadcast = self.deletion_queues[uuid].get(timeout=5)  # 5s timeout to check if still active
+                    yield broadcast
+                except queue.Empty:
+                    continue  # No message yet, keep waiting
+        except Exception as e:
+            # If they just logged out, then self.message_queue[uuid] will throw {e}, ignore
+            # Otherwise, it's a real exception we care about
+            print(f"[SERVER {self.pid}] ReceiveDeletionStream Exception: {e} (Note a logout/delete occurred if Exception=username)")
+        finally:
+            with self.lock:
+                self.active_users.pop(uuid, None)    # Mark user as offline when they disconnect
+                self.deletion_queues.pop(uuid, None)  # Clean up queue
+            print(f"[SERVER {self.pid}] {uuid} disconnected from message stream.")
     
     def ReceiveBroadcastStream(self, request, context):
         """
@@ -445,6 +518,70 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 self.broadcast_queues.pop(uuid, None)  # Clean up queue
             print(f"[SERVER {self.pid}] {uuid} disconnected from message stream.")
     
+    def ReceiveApprovalStream(self, request, context):
+        """
+        Receive live broadcast approvals
+        Return: broadcast
+        """
+        uuid = request.uuid
+        print(f"[SERVER {self.pid}] {uuid} connected to approval stream.")
+        
+        # Ensure the user has a queue
+        with self.lock:
+            if uuid not in self.approval_queues:
+                self.approval_queues[uuid] = queue.Queue()
+            self.active_users[uuid] = True
+
+        try:
+            while context.is_active():
+                try:
+                    # Block until a message is available, then send it
+                    broadcast = self.approval_queues[uuid].get(timeout=5)  # 5s timeout to check if still active
+                    yield broadcast
+                except queue.Empty:
+                    continue  # No message yet, keep waiting
+        except Exception as e:
+            # If they just logged out, then self.message_queue[uuid] will throw {e}, ignore
+            # Otherwise, it's a real exception we care about
+            print(f"[SERVER {self.pid}] ReceiveApprovalStream Exception: {e} (Note a logout/delete occurred if Exception=username)")
+        finally:
+            with self.lock:
+                self.active_users.pop(uuid, None)    # Mark user as offline when they disconnect
+                self.approval_queues.pop(uuid, None)  # Clean up queue
+            print(f"[SERVER {self.pid}] {uuid} disconnected from message stream.")
+    
+    def ReceiveDenialStream(self, request, context):
+        """
+        Receive live broadcast denials
+        Return: broadcast
+        """
+        uuid = request.uuid
+        print(f"[SERVER {self.pid}] {uuid} connected to denial stream.")
+        
+        # Ensure the user has a queue
+        with self.lock:
+            if uuid not in self.denial_queues:
+                self.denial_queues[uuid] = queue.Queue()
+            self.active_users[uuid] = True
+
+        try:
+            while context.is_active():
+                try:
+                    # Block until a message is available, then send it
+                    broadcast = self.denial_queues[uuid].get(timeout=5)  # 5s timeout to check if still active
+                    yield broadcast
+                except queue.Empty:
+                    continue  # No message yet, keep waiting
+        except Exception as e:
+            # If they just logged out, then self.message_queue[uuid] will throw {e}, ignore
+            # Otherwise, it's a real exception we care about
+            print(f"[SERVER {self.pid}] ReceiveDenialStream Exception: {e} (Note a logout/delete occurred if Exception=username)")
+        finally:
+            with self.lock:
+                self.active_users.pop(uuid, None)    # Mark user as offline when they disconnect
+                self.denial_queues.pop(uuid, None)  # Clean up queue
+            print(f"[SERVER {self.pid}] {uuid} disconnected from message stream.")
+    
     def ApproveOrDeny(self, request, context):
         """
         Approve or deny broadcast request
@@ -455,28 +592,84 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         approved = request.approved
         try:
             with self.db_connection:
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT sender_id FROM broadcasts WHERE broadcast_id = ?", (broadcast_id,))
+                sender_id = cursor.fetchone()[0]
+                cursor.execute("SELECT dogs FROM accounts WHERE uuid = ?", (uuid,))
+                current_dogs = cursor.fetchone()[0]
+                cursor.execute("SELECT capacity FROM accounts WHERE uuid = ?", (uuid,))
+                capacity = cursor.fetchone()[0]
+                cursor.execute("SELECT amount_requested FROM broadcasts WHERE broadcast_id = ? AND recipient_id = ?", (broadcast_id, uuid))
+                amount_requested = cursor.fetchone()[0]
+                cursor.execute("SELECT username FROM accounts WHERE region = ? AND uuid = ?", (region, sender_id,))
+                sender_username = cursor.fetchone()[0]
+
                 if approved:
-                    cursor = self.db_connection.cursor()
-                    
-                    cursor.execute("SELECT dogs FROM accounts WHERE uuid = ?", (uuid,))
-                    current_dogs = cursor.fetchone()[0]
-                    cursor.execute("SELECT capacity FROM accounts WHERE uuid = ?", (uuid,))
-                    capacity = cursor.fetchone()[0]
-                    cursor.execute("SELECT amount_requested FROM broadcasts WHERE broadcast_id = ? AND recipient_id = ?", (broadcast_id, uuid))
-                    amount_requested = cursor.fetchone()[0]
-                    
                     if current_dogs + amount_requested > capacity:
                         return app_pb2.GenericResponse(success=False, message="Exceeded capacity")
                     
-                    cursor.execute("UPDATE accounts SET dogs = dogs + ?", (amount_requested,))
-                    cursor.execute("UPDATE broadcasts SET status = 1 WHERE broadcast_id = ?", (broadcast_id,))
-                    # TODO: update all other clients' guis that this broadcast has been fulfilled, also remove this broadcast from current client's GUI
+                    cursor.execute("UPDATE accounts SET dogs = dogs + ? WHERE uuid = ?", (amount_requested, uuid,))
+                    cursor.execute("UPDATE broadcasts SET status = ? WHERE broadcast_id = ?", (statuses["Approved"], broadcast_id,))
+                    cursor.execute("UPDATE accounts SET dogs = dogs - ? WHERE uuid = ?", (amount_requested, sender_id,))
+                    cursor.execute("SELECT uuid FROM accounts WHERE region = ? AND uuid != ?", (region, uuid,))
+                    users = cursor.fetchall()
+
+                    for user in users:
+                        recipient_id = user[0]
+                        cursor.execute("SELECT username FROM accounts WHERE region = ? AND uuid = ?", (region, recipient_id,))
+                        recipient_username = cursor.fetchone()[0]
+                        # If recipient is online, push broadcast to their queue
+                        with self.lock:
+                            if recipient_id in self.active_users:
+                                print("SENDING APPROVAL TO USER", recipient_username)
+                                self.approval_queues[recipient_id].put(app_pb2.BroadcastObject(
+                                    broadcast_id = broadcast_id,
+                                    recipient_id = recipient_id,
+                                    sender_username = sender_username,
+                                    sender_id = sender_id,
+                                    amount_requested = amount_requested,
+                                    status = statuses["Approved"]
+                                ))
+
                     return app_pb2.GenericResponse(success=True, message="Approved successfully")
                 else:
-                    cursor.execute("UPDATE broadcasts SET status = 0 WHERE broadcast_id = ?", (broadcast_id,))
+                    cursor.execute("UPDATE broadcasts SET status = ? WHERE broadcast_id = ?", (statuses["Denied"], broadcast_id,))
+                    cursor.execute("SELECT status FROM broadcasts WHERE broadcast_id = ?", (broadcast_id,))
+                    all_status = cursor.fetchall()
+                    
+                    # Determine if broadcast was denied by everyone
+                    all_denied = True
+                    for status in all_status:
+                        if status[0] != statuses["Denied"]:
+                            all_denied = False
+                            break 
+                    
+                    # If denied by everyone, update sender's GUI
+                    if all_denied:
+                        with self.lock:
+                            self.denial_queues[sender_id].put(app_pb2.BroadcastObject(
+                                    broadcast_id = broadcast_id,
+                                    recipient_id = uuid,
+                                    sender_username = sender_username,
+                                    sender_id = sender_id,
+                                    amount_requested = amount_requested,
+                                    status = statuses["Approved"]
+                                ))
                     return app_pb2.GenericResponse(success=True, message="Denied successfully")
         except Exception as e:
             print(f"[SERVER {self.pid}] ApproveOrDeny Exception: {e}")
+            return app_pb2.GenericResponse(success=False, message="ApproveOrDeny error")
+        
+    def ChangeDogs(self, request, context):
+        uuid = request.uuid
+        change_amount = request.change_amount
+        try:
+            with self.db_connection:
+                cursor = self.db_connection.cursor()
+                cursor.execute("UPDATE accounts SET dogs = dogs + ? WHERE uuid = ?", (change_amount, uuid,))
+                return app_pb2.GenericResponse(success=True, message="ChangeDogs error") 
+        except Exception as e:
+            print(f"[SERVER {self.pid}] GetRegion Exception: {e}")
             return app_pb2.GenericResponse(success=False, message="ApproveOrDeny error")
         
     def GetRegion(self, request, context):

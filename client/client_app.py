@@ -35,7 +35,7 @@ class AppClient:
             with grpc.insecure_channel(self.server_addr) as channel:
                 stub = app_pb2_grpc.AppServiceStub(channel)
                 request = app_pb2.CreateAccountRequest(username=username, region=int(region), pwd_hash=pwd_hash)
-                response = stub.CreateAccount(request, timeout=2)
+                response = stub.CreateAccount(request, timeout=5)
                 return response.success, response.uuid
         # If server does not respond, likely not alive, continue
         except Exception as e:
@@ -50,7 +50,7 @@ class AppClient:
             with grpc.insecure_channel(self.server_addr) as channel:
                 stub = app_pb2_grpc.AppServiceStub(channel)
                 request = app_pb2.VerifyPasswordRequest(username=username, pwd_hash=pwd_hash)
-                response = stub.VerifyPassword(request, timeout=2)
+                response = stub.VerifyPassword(request, timeout=5)
                 return response.success
         # If server does not respond, likely not alive, continue
         except Exception as e:
@@ -65,7 +65,7 @@ class AppClient:
             with grpc.insecure_channel(self.server_addr) as channel:
                 stub = app_pb2_grpc.AppServiceStub(channel)
                 request = app_pb2.LoginRequest(username=username, pwd_hash=pwd_hash)
-                response = stub.Login(request, timeout=2)
+                response = stub.Login(request, timeout=5)
                 return response
         # If server does not respond, likely not alive, continue
         except Exception as e:
@@ -79,7 +79,7 @@ class AppClient:
             with grpc.insecure_channel(self.server_addr) as channel:
                 stub = app_pb2_grpc.AppServiceStub(channel)
                 request = app_pb2.DeleteAccountRequest(uuid=uuid, username=username, pwd_hash=pwd_hash)
-                response = stub.DeleteAccount(request, timeout=2)
+                response = stub.DeleteAccount(request, timeout=5)
                 return response.success
         # If server does not respond, likely not alive, continue
         except Exception as e:
@@ -93,7 +93,7 @@ class AppClient:
             with grpc.insecure_channel(self.server_addr) as channel:
                 stub = app_pb2_grpc.AppServiceStub(channel)
                 request = app_pb2.BroadcastRequest(sender_id=sender_id, region=region, quantity=quantity)
-                response = stub.Broadcast(request, timeout=2)
+                response = stub.Broadcast(request, timeout=5)
                 return response.success
         # If server does not respond, likely not alive, continue
         except Exception as e:
@@ -125,11 +125,29 @@ class AppClient:
             with grpc.insecure_channel(self.server_addr) as channel:
                 stub = app_pb2_grpc.AppServiceStub(channel)
                 request = app_pb2.DeleteBroadcastRequest(sender_id=uuid, broadcast_id=broadcast_id)
-                response = stub.DeleteBroadcast(request, timeout=2)
+                response = stub.DeleteBroadcast(request, timeout=5)
                 return response.success
         # If server does not respond, likely not alive, continue
         except Exception as e:
             print(f'[CLIENT] Exception: delete_broadcast {e}')
+
+    def receive_deletion(self, uuid, callback):
+        """
+        Receive broadcast deletions
+        """
+        print("Listening for broadcast deletions...")
+        try:
+            for broadcast in self.stub.ReceiveDeletionStream(app_pb2.ReceiveDeletionRequest(uuid=int(uuid))):
+                callback(broadcast)
+        except grpc.RpcError as e:
+            # Try again if disconnected from server
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                if self.reconnect():
+                    # Restart message stream
+                    self.receive_deletion(uuid, callback)
+                    return
+            raise
 
     def approve_or_deny(self, uuid, broadcast_id, approved):
         """
@@ -139,11 +157,61 @@ class AppClient:
             with grpc.insecure_channel(self.server_addr) as channel:
                 stub = app_pb2_grpc.AppServiceStub(channel)
                 request = app_pb2.ApproveOrDenyRequest(uuid=uuid, broadcast_id=broadcast_id, approved=approved)
-                response = stub.ApproveOrDeny(request, timeout=2)
+                response = stub.ApproveOrDeny(request, timeout=5)
                 return response.success
         # If server does not respond, likely not alive, continue
         except Exception as e:
             print(f'[CLIENT] Exception: approve_or_deny {e}')
+
+    def receive_approval(self, uuid, callback):
+        """
+        Receive broadcast approvals
+        """
+        print("Listening for broadcast approvals...")
+        try:
+            for broadcast in self.stub.ReceiveApprovalStream(app_pb2.ReceiveApprovalRequest(uuid=int(uuid))):
+                callback(broadcast)
+        except grpc.RpcError as e:
+            # Try again if disconnected from server
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                if self.reconnect():
+                    # Restart message stream
+                    self.receive_approval(uuid, callback)
+                    return
+            raise
+
+    def receive_denial(self, uuid, callback):
+        """
+        Receive broadcast denials
+        """
+        print("Listening for broadcast denials...")
+        try:
+            for broadcast in self.stub.ReceiveDenialStream(app_pb2.ReceiveDenialRequest(uuid=int(uuid))):
+                callback(broadcast)
+        except grpc.RpcError as e:
+            # Try again if disconnected from server
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                if self.reconnect():
+                    # Restart message stream
+                    self.receive_denial(uuid, callback)
+                    return
+            raise
+
+    def change_dogs(self, uuid, change_amount):
+        """
+        Change account's number of dogs
+        """
+        try:
+            with grpc.insecure_channel(self.server_addr) as channel:
+                stub = app_pb2_grpc.AppServiceStub(channel)
+                request = app_pb2.ChangeDogsRequest(uuid=uuid, change_amount=change_amount)
+                response = stub.ChangeDogs(request, timeout=5)
+                return response.success
+        # If server does not respond, likely not alive, continue
+        except Exception as e:
+            print(f'[CLIENT] Exception: change_dogs {e}')
 
     def reconnect(self):
         """
@@ -179,7 +247,7 @@ class AppClient:
                         with grpc.insecure_channel(addr) as channel:
                             stub = app_pb2_grpc.AppServiceStub(channel)
                             request = app_pb2.GetRegionRequest(username=username)
-                            response = stub.GetRegion(request, timeout=2)
+                            response = stub.GetRegion(request, timeout=5)
                             region = response.region
                             region_found = True
                             print("REGION FOUND AS ", region)
@@ -204,7 +272,7 @@ class AppClient:
                     with grpc.insecure_channel(addr) as channel:
                         stub = app_pb2_grpc.AppLoadBalancerStub(channel)
                         request = app_pb2.GetServerRequest(region=int(region))
-                        response = stub.GetServer(request, timeout=2)
+                        response = stub.GetServer(request, timeout=5)
                         if response.success and response.address:
                             print(f"[CLIENT] Found Server To Talk To: {response.address}")
                             return response.address

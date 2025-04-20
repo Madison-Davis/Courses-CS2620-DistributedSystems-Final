@@ -64,6 +64,11 @@ class AppServiceStub(object):
                 request_serializer=proto_dot_app__pb2.DeleteBroadcastRequest.SerializeToString,
                 response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
                 _registered_method=True)
+        self.ReceiveDeletionStream = channel.unary_stream(
+                '/chat.AppService/ReceiveDeletionStream',
+                request_serializer=proto_dot_app__pb2.ReceiveDeletionRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.BroadcastObject.FromString,
+                _registered_method=True)
         self.ReceiveBroadcastStream = channel.unary_stream(
                 '/chat.AppService/ReceiveBroadcastStream',
                 request_serializer=proto_dot_app__pb2.ReceiveBroadcastRequest.SerializeToString,
@@ -72,6 +77,21 @@ class AppServiceStub(object):
         self.ApproveOrDeny = channel.unary_unary(
                 '/chat.AppService/ApproveOrDeny',
                 request_serializer=proto_dot_app__pb2.ApproveOrDenyRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
+                _registered_method=True)
+        self.ReceiveApprovalStream = channel.unary_stream(
+                '/chat.AppService/ReceiveApprovalStream',
+                request_serializer=proto_dot_app__pb2.ReceiveApprovalRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.BroadcastObject.FromString,
+                _registered_method=True)
+        self.ReceiveDenialStream = channel.unary_stream(
+                '/chat.AppService/ReceiveDenialStream',
+                request_serializer=proto_dot_app__pb2.ReceiveDenialRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.BroadcastObject.FromString,
+                _registered_method=True)
+        self.ChangeDogs = channel.unary_unary(
+                '/chat.AppService/ChangeDogs',
+                request_serializer=proto_dot_app__pb2.ChangeDogsRequest.SerializeToString,
                 response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
                 _registered_method=True)
         self.ReplicateServer = channel.unary_unary(
@@ -135,6 +155,12 @@ class AppServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ReceiveDeletionStream(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ReceiveBroadcastStream(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -142,6 +168,24 @@ class AppServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ApproveOrDeny(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReceiveApprovalStream(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReceiveDenialStream(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ChangeDogs(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -204,6 +248,11 @@ def add_AppServiceServicer_to_server(servicer, server):
                     request_deserializer=proto_dot_app__pb2.DeleteBroadcastRequest.FromString,
                     response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
             ),
+            'ReceiveDeletionStream': grpc.unary_stream_rpc_method_handler(
+                    servicer.ReceiveDeletionStream,
+                    request_deserializer=proto_dot_app__pb2.ReceiveDeletionRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.BroadcastObject.SerializeToString,
+            ),
             'ReceiveBroadcastStream': grpc.unary_stream_rpc_method_handler(
                     servicer.ReceiveBroadcastStream,
                     request_deserializer=proto_dot_app__pb2.ReceiveBroadcastRequest.FromString,
@@ -212,6 +261,21 @@ def add_AppServiceServicer_to_server(servicer, server):
             'ApproveOrDeny': grpc.unary_unary_rpc_method_handler(
                     servicer.ApproveOrDeny,
                     request_deserializer=proto_dot_app__pb2.ApproveOrDenyRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
+            ),
+            'ReceiveApprovalStream': grpc.unary_stream_rpc_method_handler(
+                    servicer.ReceiveApprovalStream,
+                    request_deserializer=proto_dot_app__pb2.ReceiveApprovalRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.BroadcastObject.SerializeToString,
+            ),
+            'ReceiveDenialStream': grpc.unary_stream_rpc_method_handler(
+                    servicer.ReceiveDenialStream,
+                    request_deserializer=proto_dot_app__pb2.ReceiveDenialRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.BroadcastObject.SerializeToString,
+            ),
+            'ChangeDogs': grpc.unary_unary_rpc_method_handler(
+                    servicer.ChangeDogs,
+                    request_deserializer=proto_dot_app__pb2.ChangeDogsRequest.FromString,
                     response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
             ),
             'ReplicateServer': grpc.unary_unary_rpc_method_handler(
@@ -408,6 +472,33 @@ class AppService(object):
             _registered_method=True)
 
     @staticmethod
+    def ReceiveDeletionStream(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/chat.AppService/ReceiveDeletionStream',
+            proto_dot_app__pb2.ReceiveDeletionRequest.SerializeToString,
+            proto_dot_app__pb2.BroadcastObject.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def ReceiveBroadcastStream(request,
             target,
             options=(),
@@ -450,6 +541,87 @@ class AppService(object):
             target,
             '/chat.AppService/ApproveOrDeny',
             proto_dot_app__pb2.ApproveOrDenyRequest.SerializeToString,
+            proto_dot_app__pb2.GenericResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReceiveApprovalStream(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/chat.AppService/ReceiveApprovalStream',
+            proto_dot_app__pb2.ReceiveApprovalRequest.SerializeToString,
+            proto_dot_app__pb2.BroadcastObject.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReceiveDenialStream(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/chat.AppService/ReceiveDenialStream',
+            proto_dot_app__pb2.ReceiveDenialRequest.SerializeToString,
+            proto_dot_app__pb2.BroadcastObject.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ChangeDogs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/chat.AppService/ChangeDogs',
+            proto_dot_app__pb2.ChangeDogsRequest.SerializeToString,
             proto_dot_app__pb2.GenericResponse.FromString,
             options,
             channel_credentials,
