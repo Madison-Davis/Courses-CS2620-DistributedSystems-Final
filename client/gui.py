@@ -424,21 +424,25 @@ def load_main_frame(data):
     sent_out_broadcasts_frame.grid(row=1, column=2, sticky='nsew', padx=5, pady=5)
     # title label
     tk.Label(sent_out_broadcasts_frame, text="Sent Broadcasts", bg="gray20", fg="white", font=("Helvetica", 14)).pack(pady=5)
+    # data table
     canvas_sent = tk.Canvas(sent_out_broadcasts_frame, bg="gray20")
     canvas_sent.pack(side="left", fill="both", expand=True)
-    # scrollbar
-    scrollbar_sent = tk.Scrollbar(sent_out_broadcasts_frame, orient="vertical", command=canvas_sent.yview, width=5)
-    scrollbar_sent.pack(side="right", fill="y")
-    # func: auto-resize container to match canvas width
-    sent_window_id = canvas_sent.configure(yscrollcommand=scrollbar_sent.set)
-    canvas_sent.bind("<Configure>", lambda event: canvas_sent.itemconfig(sent_window_id, width=event.width))
-    # func: scrollregion updates as content changes
+    # data table scrollbar
+    scrollbar_received = tk.Scrollbar(sent_out_broadcasts_frame, orient="vertical", command=canvas_sent.yview, width=5)
+    scrollbar_received.pack(side="right", fill="y")
+    canvas_sent.configure(yscrollcommand=scrollbar_received.set)
+    # internal container for rows
     sent_broadcasts_container = tk.Frame(canvas_sent, bg="gray20")
-    canvas_sent.create_window((0, 0), window=sent_broadcasts_container, anchor="nw", tags="sent_container")
+    window_id = canvas_sent.create_window((0, 0), window=sent_broadcasts_container, anchor="nw")
+    # func: auto-resize container to match canvas width
+    def resize_container(event):
+        canvas_sent.itemconfig(window_id, width=event.width)
+    canvas_sent.bind("<Configure>", resize_container)
+    # func: scrollregion updates as content changes
     sent_broadcasts_container.bind(
         "<Configure>",
-        lambda event: canvas_sent.itemconfig("sent_container", width=canvas_sent.winfo_width())
-    )   
+        lambda event: canvas_sent.configure(scrollregion=canvas_sent.bbox("all"))
+    )
     load_sent_broadcasts(sent_broadcasts_container, data["broadcasts_sent"])
     
     # Row 2: received Broadcasts
@@ -536,17 +540,17 @@ def load_sent_broadcasts(container, broadcasts):
 
     # Headers frame
     header_frame = tk.Frame(container, bg="gray30")
-    header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(5, 2))
+    header_frame.grid(row=0, column=0, sticky="ew", padx=5, pady=(5, 2))
     for col in range(3):
         header_frame.columnconfigure(col, weight=1, uniform="sent_cols")
     tk.Label(header_frame, text="Dogs", bg="gray30", fg="white",
-             font=('Arial', 10, 'bold'), anchor="center")\
+        font=('Arial', 10, 'bold'), anchor="center")\
         .grid(row=0, column=0, sticky="nsew", padx=15, pady=2)
     tk.Label(header_frame, text="Status", bg="gray30", fg="white",
-             font=('Arial', 10, 'bold'), anchor="center")\
+        font=('Arial', 10, 'bold'), anchor="center")\
         .grid(row=0, column=1, sticky="nsew", padx=15, pady=2)
     tk.Label(header_frame, text="Delete", bg="gray30", fg="white",
-             font=('Arial', 10, 'bold'), anchor="center")\
+        font=('Arial', 10, 'bold'), anchor="center")\
         .grid(row=0, column=2, sticky="nsew", padx=15, pady=2)
 
     # Row for each sent broadcast
