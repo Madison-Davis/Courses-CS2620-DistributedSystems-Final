@@ -23,6 +23,7 @@ class AppClient:
         self.server_addr = self.get_region_server(region, username)
         self.channel = grpc.insecure_channel(self.server_addr)
         self.stub = app_pb2_grpc.AppServiceStub(self.channel)
+        self.region = region
         print(f"[CLIENT] Connected to server {self.server_addr}")
 
     def create_account(self, username, region, pwd_hash):
@@ -218,13 +219,13 @@ class AppClient:
         """
         Fetch the new leader's address and reinitialize the connection.
         """
-        new_leader = self.get_region_server()  # TODO: doesn't this need a region as input?
+        new_leader = self.get_region_server(self.region)
         if new_leader:
             print(f"[CLIENT] New leader found: {new_leader}.  Reconnecting...")
             # Update channel and stub with the new leader address.
             self.channel = grpc.insecure_channel(new_leader)
             print(f"Connecting to address {new_leader}")
-            self.stub = app_pb2_grpc.ChatServiceStub(self.channel)
+            self.stub = app_pb2_grpc.AppServiceStub(self.channel)
             return True
         else:
             print("[CLIENT] Could not get the new leader. Please try again later.")
