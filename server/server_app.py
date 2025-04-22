@@ -221,7 +221,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             if uuid not in self.broadcast_queues:
                 self.broadcast_queues[uuid] = queue.Queue()
             # TODO: replicate operation across all other possible servers
-            #self.replicate_to_replicas("CreateAccount", request)
+            self.replicate_to_other_servers("CreateAccount", request)
             return response
         except Exception as e:
             print(f"[SERVER {self.pid}] CreateAccount Exception:, {e}")
@@ -247,8 +247,6 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 else:
                     response = app_pb2.VerifyPasswordResponse(uuid=uuid, success=False, message="Password is None/not found")
                 return response
-            # TODO: replicate operation across all other possible servers
-            #self.replicate_to_replicas("VerifyPassword", request)
             return response
         except Exception as e:
             print(f"[SERVER {self.pid}] VerifyPassword Exception: {e}")
@@ -339,7 +337,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 cursor.execute("DELETE FROM broadcasts WHERE sender_id = ?", (uuid,))
                 return app_pb2.GenericResponse(success=True, message="Account deleted successfully")
             # TODO: replicate operation across all other possible servers
-            #self.replicate_to_replicas("DeleteAccount", request)
+            self.replicate_to_other_servers("DeleteAccount", request)
             return response
         except Exception as e:
             print(f"[SERVER {self.pid}] DeleteAccount Exception: {e}")
@@ -400,6 +398,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 
                 response = app_pb2.GenericResponse(success=True, message="Broadcast sent")
                 # TODO: replicate operation
+                self.replicate_to_other_servers("Broadcast", request)
                 return response
         except Exception as e:
             print(f"[SERVER {self.pid}] Broadcast Exception: {e}")
@@ -448,6 +447,8 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                                 amount_requested = amount_requested,
                                 status = statuses["Approved"]
                             ))
+                # Replicate to other servers
+                self.replicate_to_other_servers("DeleteBroadcast", request)
 
                 return app_pb2.GenericResponse(success=True, message="Broadcast deleted.")
         except Exception as e:
@@ -630,7 +631,8 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                                     amount_requested = amount_requested,
                                     status = statuses["Approved"]
                                 ))
-
+                    # Replicate to other servers
+                    self.replicate_to_other_servers("ApproveOrDeny", request)
                     return app_pb2.GenericResponse(success=True, message="Approved successfully")
                 else:
                     cursor.execute("UPDATE broadcasts SET status = ? WHERE broadcast_id = ?", (statuses["Denied"], broadcast_id,))
@@ -655,6 +657,8 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                                     amount_requested = amount_requested,
                                     status = statuses["Approved"]
                                 ))
+                    # Replicate to other servers
+                    self.replicate_to_other_servers("ApproveOrDeny", request)
                     return app_pb2.GenericResponse(success=True, message="Denied successfully")
         except Exception as e:
             print(f"[SERVER {self.pid}] ApproveOrDeny Exception: {e}")
@@ -667,6 +671,8 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             with self.db_connection:
                 cursor = self.db_connection.cursor()
                 cursor.execute("UPDATE accounts SET dogs = dogs + ? WHERE uuid = ?", (change_amount, uuid,))
+                # Replicate to other servers
+                self.replicate_to_other_servers("ChangeDogs", request)
                 return app_pb2.GenericResponse(success=True, message="ChangeDogs error") 
         except Exception as e:
             print(f"[SERVER {self.pid}] GetRegion Exception: {e}")
@@ -706,10 +712,18 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             local_request = app_pb2.UpdateRegistryRequest()
             local_request.ParseFromString(request.payload)
             self.Broadcast(local_request, context)
+        elif method == "DeleteBroadcast":
+            local_request = app_pb2.DeleteBroadcastRequest()
+            local_request.ParseFromString(request.payload)
+            self.DeleteBroadcast(local_request, context)
         elif method == "ApproveOrDeny":
             local_request = app_pb2.UpdateRegistryRequest()
             local_request.ParseFromString(request.payload)
             self.Broadcast(local_request, context)
+        elif method == "ChangeDogs":
+            local_request = app_pb2.ChangeDogsRequest()
+            local_request.ParseFromString(request.payload)
+            self.ChangeDogs(local_request, context)
         pass
 
     def replicate_to_other_servers(self, method_name, request):
