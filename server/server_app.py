@@ -220,7 +220,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 self.active_users[uuid] = ""
             if uuid not in self.broadcast_queues:
                 self.broadcast_queues[uuid] = queue.Queue()
-            # TODO: replicate operation across all other possible servers
+            # Replicate operation across all other possible servers
             if not replicateRequest:
                 self.replicate_to_other_servers("CreateAccount", request)
             return response
@@ -336,10 +336,10 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 cursor.execute("DELETE FROM accounts WHERE uuid = ?", (uuid,))
                 cursor.execute("DELETE FROM broadcasts WHERE recipient_id = ?", (uuid,))
                 cursor.execute("DELETE FROM broadcasts WHERE sender_id = ?", (uuid,))
+                # Replicate operation
                 if not replicateRequest:
                     self.replicate_to_other_servers("DeleteAccount", request)
                 return app_pb2.GenericResponse(success=True, message="Account deleted successfully")
-            # TODO: replicate operation across all other possible servers
             return response
         except Exception as e:
             print(f"[SERVER {self.pid}] DeleteAccount Exception: {e}")
@@ -399,7 +399,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                             ))
                 
                 response = app_pb2.GenericResponse(success=True, message="Broadcast sent")
-                # TODO: replicate operation
+                # Replicate operation
                 if not replicateRequest:
                     self.replicate_to_other_servers("Broadcast", request)
                 return response
@@ -824,7 +824,15 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                         with self.db_connection:
                             cursor = self.db_connection.cursor()
                             cursor.execute("DELETE FROM registry WHERE pid = ?", (pid,))
-                        # TODO: scream for help to the load balancer
+                        # Inform the load balancer that the server is dead
+                        request = app_pb2.InformServerDeadRequest(pid=pid)
+                        try:
+                            response = self.lb_stub.InformServerDead(request)
+                            print(f"Load balancer informed of dead server {pid}: {response.success}")                                
+                        except grpc.RpcError as e:
+                            # TODO: for future versions (replicated LB), try again from another load balancer
+                            raise
+
             time.sleep(config.HEARTBEAT_INTERVAL)
 
     def heartbeat_start(self):
