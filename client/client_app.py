@@ -93,7 +93,8 @@ class AppClient:
             with grpc.insecure_channel(self.server_addr) as channel:
                 stub = app_pb2_grpc.AppServiceStub(channel)
                 request = app_pb2.BroadcastRequest(sender_id=sender_id, region=region, quantity=quantity)
-                response = stub.Broadcast(request, timeout=5)
+                # response = stub.Broadcast(request, timeout=5)
+                response = stub.Broadcast(request)
                 return response.success
         # If server does not respond, likely not alive, continue
         except Exception as e:
