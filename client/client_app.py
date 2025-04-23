@@ -5,6 +5,7 @@
 import os
 import sys
 import grpc
+import threading
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from config import config
 from proto import app_pb2
@@ -20,6 +21,7 @@ class AppClient:
         """
         Establish channel and service stub.
         """
+        self.reconnect_lock = threading.Lock()
         self.server_addr = self.get_region_server(region, username)
         self.channel = grpc.insecure_channel(self.server_addr)
         self.stub = app_pb2_grpc.AppServiceStub(self.channel)
@@ -40,7 +42,7 @@ class AppClient:
                 return response.success, response.uuid
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                print("[CLIENT] Connection failed create_account. Attempting to reconnect to new leader...")
                 if self.reconnect():
                     return self.create_account(username, region, pwd_hash)
             raise
@@ -58,7 +60,7 @@ class AppClient:
                 return response.success
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                print("[CLIENT] Connection failed verify_password. Attempting to reconnect to new leader...")
                 if self.reconnect():
                     return self.verify_password(username, pwd_hash)
             raise
@@ -76,7 +78,7 @@ class AppClient:
                 return response
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                print("[CLIENT] Connection failed login. Attempting to reconnect to new leader...")
                 if self.reconnect():
                     return self.login(username, pwd_hash)
             raise
@@ -93,7 +95,7 @@ class AppClient:
                 return response.success
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                print("[CLIENT] Connection failed delete_account. Attempting to reconnect to new leader...")
                 if self.reconnect():
                     return self.delete_account(uuid, username, pwd_hash)
             raise
@@ -111,7 +113,7 @@ class AppClient:
                 return response.success
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                print("[CLIENT] Connection failed broadcast. Attempting to reconnect to new leader...")
                 if self.reconnect():
                     return self.broadcast(sender_id, region, quantity)
             raise
@@ -120,17 +122,23 @@ class AppClient:
         """
         Receive broadcast stream
         """
-        print("Listening for broadcasts...")
         try:
             for broadcast in self.stub.ReceiveBroadcastStream(app_pb2.ReceiveBroadcastRequest(uuid=int(uuid))):
                 callback(broadcast)
         except grpc.RpcError as e:
             # Try again if disconnected from server
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
-                if self.reconnect():
-                    # Restart message stream
-                    self.receive_broadcast(uuid, callback)
+                print("[CLIENT] Connection failed 'receive_broadcast'. Attempting to reconnect to new leader...")
+                if self.reconnect_lock.acquire(blocking=False):
+                    try:
+                        if self.reconnect():
+                            # Restart message stream
+                            self.receive_broadcast(uuid, callback)
+                            return
+                    finally:
+                        self.reconnect_lock.release()
+                else:
+                    print("[CLIENT] Reconnect 'receive_broadcast' already in progress from another thread. Skipping.")
                     return
             raise
 
@@ -146,7 +154,7 @@ class AppClient:
                 return response.success
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                print("[CLIENT] Connection failed delete_broadcast. Attempting to reconnect to new leader...")
                 if self.reconnect():
                     return self.delete_broadcast(uuid, broadcast_id)
             raise
@@ -155,17 +163,23 @@ class AppClient:
         """
         Receive broadcast deletions
         """
-        print("Listening for broadcast deletions...")
         try:
             for broadcast in self.stub.ReceiveDeletionStream(app_pb2.ReceiveDeletionRequest(uuid=int(uuid))):
                 callback(broadcast)
         except grpc.RpcError as e:
             # Try again if disconnected from server
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
-                if self.reconnect():
-                    # Restart message stream
-                    self.receive_deletion(uuid, callback)
+                print("[CLIENT] Connection failed 'receive_deletion'. Attempting to reconnect to new leader...")
+                if self.reconnect_lock.acquire(blocking=False):
+                    try:
+                        if self.reconnect():
+                            # Restart message stream
+                            self.receive_deletion(uuid, callback)
+                            return
+                    finally:
+                        self.reconnect_lock.release()
+                else:
+                    print("[CLIENT] Reconnect 'receive_deletion' already in progress from another thread. Skipping.")
                     return
             raise
 
@@ -181,7 +195,7 @@ class AppClient:
                 return response.success
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                print("[CLIENT] Connection failed approve_or_deny. Attempting to reconnect to new leader...")
                 if self.reconnect():
                     return self.approve_or_deny(uuid, broadcast_id, approved)
             raise
@@ -190,17 +204,23 @@ class AppClient:
         """
         Receive broadcast approvals
         """
-        print("Listening for broadcast approvals...")
         try:
             for broadcast in self.stub.ReceiveApprovalStream(app_pb2.ReceiveApprovalRequest(uuid=int(uuid))):
                 callback(broadcast)
         except grpc.RpcError as e:
             # Try again if disconnected from server
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
-                if self.reconnect():
-                    # Restart message stream
-                    self.receive_approval(uuid, callback)
+                print("[CLIENT] Connection failed 'receive_approval'. Attempting to reconnect to new leader...")
+                if self.reconnect_lock.acquire(blocking=False):
+                    try:
+                        if self.reconnect():
+                            # Restart message stream
+                            self.receive_approval(uuid, callback)
+                            return
+                    finally:
+                        self.reconnect_lock.release()
+                else:
+                    print("[CLIENT] Reconnect 'receive_approval' already in progress from another thread. Skipping.")
                     return
             raise
 
@@ -208,17 +228,23 @@ class AppClient:
         """
         Receive broadcast denials
         """
-        print("Listening for broadcast denials...")
         try:
             for broadcast in self.stub.ReceiveDenialStream(app_pb2.ReceiveDenialRequest(uuid=int(uuid))):
                 callback(broadcast)
         except grpc.RpcError as e:
             # Try again if disconnected from server
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
-                if self.reconnect():
-                    # Restart message stream
-                    self.receive_denial(uuid, callback)
+                print("[CLIENT] Connection failed 'receive_denial'. Attempting to reconnect to new leader...")
+                if self.reconnect_lock.acquire(blocking=False):
+                    try:
+                        if self.reconnect():
+                            # Restart message stream
+                            self.receive_denial(uuid, callback)
+                            return
+                    finally:
+                        self.reconnect_lock.release()
+                else:
+                    print("[CLIENT] Reconnect 'receive_denial' already in progress from another thread. Skipping.")
                     return
             raise
 
@@ -234,7 +260,7 @@ class AppClient:
                 return response.success
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                print("[CLIENT] Connection failed. Attempting to reconnect to new leader...")
+                print("[CLIENT] Connection failed change_dogs. Attempting to reconnect to new leader...")
                 if self.reconnect():
                     return self.change_dogs(uuid, change_amount)
             raise
@@ -280,7 +306,7 @@ class AppClient:
                             print("REGION FOUND AS ", region)
                             break
                     except Exception as e:
-                        print(f'[CLIENT] Exception 1: get_region_server find region {e}')
+                        #print(f'[CLIENT] Exception 1: get_region_server find region {e}')
                         continue
                     if region_found:
                         break 
@@ -305,7 +331,7 @@ class AppClient:
                             return response.address
                 # If they do not respond, likely not alive, continue
                 except Exception as e:
-                    print(f'[CLIENT] Exception 2: get_region_server {e}')
+                    #print(f'[CLIENT] Exception 2: get_region_server {e}')
                     continue
         # If no load balancer is alive, return None
         return None

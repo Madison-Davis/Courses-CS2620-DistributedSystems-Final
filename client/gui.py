@@ -278,7 +278,6 @@ def load_login_frame():
             region_name = entries['region'].cget('text') if 'region' in entries else None
             region_map = {"East": 0, "Midwest": 1, "West": 2}
             region = region_map.get(region_name, -1) if region_name else -1
-            print(region)
             is_new = login_mode.get() == "new"
             button_enter_login(user, pwd, region, is_new)
 
