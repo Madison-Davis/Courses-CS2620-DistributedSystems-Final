@@ -847,7 +847,7 @@ def comm_create_server(host, region):
     """
     Create a communication point for a server for clients to connect to.
     """
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=config.MAX_THREADS))
     app_service = AppService(host, region)
     app_pb2_grpc.add_AppServiceServicer_to_server(app_service, server)
     server_port = config.SERVER_BASE_PORT + app_service.pid

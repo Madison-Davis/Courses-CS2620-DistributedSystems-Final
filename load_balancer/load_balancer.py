@@ -234,7 +234,7 @@ def comm_create_lb(host):
     """
     Create a communication point for a load balancer for servers to connect to.
     """
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=config.MAX_THREADS))
     app_lb = AppLoadBalancer(host, pid)
     app_pb2_grpc.add_AppLoadBalancerServicer_to_server(app_lb, server)
     server.add_insecure_port(f'{app_lb.addr}')
