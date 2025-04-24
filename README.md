@@ -98,7 +98,7 @@ We utilized gRPC to design how messages were to be sent to/from the client/serve
 
 
 -------------------------------------------
-## Server Data: SQL
+## Database Design
 
 Format: [COLUMN]: [TYPE]
 
@@ -142,7 +142,7 @@ Registry Table
 3. address: text
 
 -------------------------------------------
-## Data Transfers
+## Data Transfer Design
 We have three main data transfers:
 1. Initialization: the initialization stage requires the use of a config file.  The config file has the list of all IP addresses that both LBs and servers can be found on, a base port (integer) for the LBs (6000) and servers (5000), and a range of PIDs that both LBs and servers could have.  The full address of these machines is therefore notated as IP address : port, where the port is the base port plus the machine’s PID.  The LB starts up without any prerequisites.  When the server starts up, it will use the config file to iteratively ping all possible LBs, starting from the lowest-PID LB, until it hears back from a LB.  The LB will hear the new server, place it in its registry of servers, then ping all other servers to update their database registry of servers.  When one of these existing servers updates, if any, it will tell the LB all of its data.  The LB will then return the data as a response to the new server.  This new server will therefore be caught up.  The LB will also return a new PID for the server based on the LB’s database of registered and active servers; PIDs start at 0 and increment when adding more servers to the existing pile of servers.  When a client starts up, it will also ping over all possible LBs.  When it finds one that is alive, it will request “I am in region x, what server should I contact?”.  The LB will look in its regions database, determine which server should be serving that region, and return the data to the client, whereupon the client is all set up to start communicating.
 2. Data Replication: when a server for a specific region updates its tables from some operation (for example, new client, deleted client, new broadcast), it must propagate the changes to the other servers’ databases.  In its Replicate function, it will format data so that it mimics the update that it itself had to do, and it will send out this request to all other servers.  The servers will conduct that change in their database and return a success message upon successfully conducting the same operation in their database.
