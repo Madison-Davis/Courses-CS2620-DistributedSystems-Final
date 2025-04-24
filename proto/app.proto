@@ -27,6 +27,7 @@ service AppLoadBalancer {
     rpc GetServer(GetServerRequest) returns (GetServerResponse);
     rpc CreateNewServer(CreateNewServerRequest) returns (CreateNewServerResponse);
     rpc FindLBLeader(FindLBLeaderRequest) returns (FindLBLeaderResponse);
+    rpc HeartbeatLB(HeartbeatRequest) returns (GenericResponse);
 }
 
 message CreateAccountRequest {
@@ -169,6 +170,25 @@ message UpdateExistingServerRequest {
 }
 
 message UpdateExistingServerResponse {
+    bool success = 1;
+    string sql_database = 2;
+}
+
+message CreateNewLBRequest {
+    int32 pid = 1;
+    string host = 2;
+}
+
+message CreateNewLBResponse {
+    bool success = 1;
+    string sql_database = 3;
+}
+
+message UpdateExistingLBRequest {
+    string servers = 1;
+}
+
+message UpdateExistingLBResponse {
     bool success = 1;
     string sql_database = 2;
 }

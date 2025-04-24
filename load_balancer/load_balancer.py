@@ -10,6 +10,7 @@ import grpc
 import sqlite3
 import logging
 import argparse
+import threading
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 database_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "databases"))
 from config import config
@@ -62,13 +63,81 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
                 server_status INTEGER NOT NULL  
             )
             ''')
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS registry (
+                pid INTEGER PRIMARY KEY,
+                timestamp REAL NOT NULL,
+                addr TEXT NOT NULL
+            )
+            ''')
+
+            for host in config.LB_HOSTS:
+                for pid in range(config.LB_PID_RANGE[0], config.LB_PID_RANGE[1]):
+                    ts = time.time()
+                    addr = str(host) + ":" + str(int(config.LB_BASE_PORT) + int(pid))
+                    # if already in there, do not override
+                    cursor.execute('''
+                        INSERT INTO registry (pid, timestamp, addr)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(pid) DO UPDATE SET timestamp=excluded.timestamp
+                    ''', (pid, ts, addr)) 
 
     # ++++++++++++  Functions: Replication  ++++++++++++ #      
     def ReplicateLB(self, request, context):
-        pass
+        """
+        This LB has been requested to handle a replication from the lead LB
+        """
+        # Deserialize request.payload and call appropriate local update
+        method = request.method
+        print(f"[LB {self.pid}] Received replication request for method {method}")
+        if method == "InformServerDead":
+            local_request = app_pb2.InformServerDeadRequest()
+            local_request.ParseFromString(request.payload)
+            self.InformServerDead(local_request, context, replicateRequest=True)
+        elif method == "CreateNewServer":
+            local_request = app_pb2.CreateNewServerRequest()
+            local_request.ParseFromString(request.payload)
+            self.CreateNewServer(local_request, context, replicateRequest=True)
+        elif method == "GetServer":
+            local_request = app_pb2.GetServerRequest()
+            local_request.ParseFromString(request.payload)
+            self.GetServer(local_request, context, replicateRequest=True)
+        return app_pb2.GenericResponse(success=True, message="Replication successful")
+    
+    def replicate_to_other_servers(self, method_name, request):
+        """
+        Lead LB sends a request out to other LBs to update their data
+        based on what happened in this LB's region
+        """
+        # Set up the request according to pb2
+        payload = request.SerializeToString()
+        request = app_pb2.ReplicationRequest(method=method_name, payload=payload)
+        # Collect pids/addresses for servers that are potential candidates for sending
+        with self.db_connection:
+            cursor = self.db_connection.cursor()
+            cursor.execute("SELECT pid, addr FROM registry")
+            for pid, addr in cursor.fetchall():
+                # Don't need to replicate to yourself
+                if pid == self.pid:
+                    continue
+                # Check heartbeat timestamp (if missing or too old, skip this replica)
+                cursor.execute("SELECT timestamp FROM registry WHERE pid = ? AND addr = ?", (pid, addr))
+                last_hb = cursor.fetchone()[0]  # Fetch the result (single row)
+                if time.time() - last_hb > config.HEARTBEAT_TIMEOUT:
+                    print(f"[LB {self.pid}] Replica {pid} heartbeat timed out; removing from alive list.")
+                    continue
+                # Send replication request to all active servers
+                try:
+                    with grpc.insecure_channel(addr) as channel:
+                        stub = app_pb2_grpc.AppLoadBalancerStub(channel)
+                        response = stub.ReplicateLB(request)
+                        if not response.success:
+                            print(f"[LB {self.pid}] Replication to replica {pid} failed: {response.message}")
+                except Exception as e:
+                    print(f"[LB {self.pid}] Error replicating to replica {pid}.")
 
     # ++++++++++  Functions: Server-Handling  ++++++++++ #    
-    def InformServerDead(self, request, context):
+    def InformServerDead(self, request, context, replicateRequest=False):
         with self.db_connection:
             cursor = self.db_connection.cursor()
             dead_pid = request.pid
@@ -109,6 +178,11 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
             server_table = json.dumps(server_table)
             update_request = app_pb2.UpdateExistingServerRequest(servers=server_table)
 
+            # Before sending the result, replica to other LBs
+            # replicateRequest here to avoid infinite recursion
+            if not replicateRequest:
+                self.replicate_to_other_servers("InformServerDead", request)
+
             # Send the update to all servers besides dead ones
             cursor.execute("SELECT server_pid, server_addr FROM servers WHERE server_status = 1")
             for pid, addr in cursor.fetchall():
@@ -120,7 +194,7 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
                         print(f"[SERVER {self.pid}] Update to replica {pid} failed: {response.sql_database}")
             return app_pb2.GenericResponse(success=True, message="Server marked dead and updated servers")
 
-    def GetServer(self, request, context):
+    def GetServer(self, request, context, replicateRequest=False):
         """
         LB receives a request from a client to get the server it should talk to
         """
@@ -128,6 +202,8 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
         # just simply query one server, ask 'hey, have you seen this person before, what server should I go to'
         # NOTE: for now, I just assign it to the first server I got 
         try:
+            if not replicateRequest:
+                self.replicate_to_other_servers("GetServer", request)
             with self.db_connection:
                 cursor = self.db_connection.cursor()
                 region = request.region
@@ -147,7 +223,7 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
             print(f"Error in GetServer: {e}")
             return app_pb2.GetServerResponse(address="",success=False,message=str(e))
         
-    def CreateNewServer(self, request, context):
+    def CreateNewServer(self, request, context, replicateRequest=False):
         """
         LB receives a request from a server to get a fresh pid for itself
         LB will send out a broadcast 
@@ -210,6 +286,10 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
                                 print(f"[SERVER {self.pid}] Update to replica {pid} failed: {response.sql_database}")
                             elif got_a_response:
                                 sql_database = response.sql_database
+
+                # Before sending the result, replica to other LBs
+                if not replicateRequest:
+                    self.replicate_to_other_servers("CreateNewServer", request)
                 
                 # Send the update to the new server, which includes another consistent server's entire SQL to allow catch-up
                 replica_response = app_pb2.CreateNewServerResponse(success=True,pid=server_pid,sql_database=sql_database)
@@ -226,7 +306,71 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
         # In subsequent versions, we may also want replicas for the LB
         return app_pb2.FindLBLeaderResponse(success=True, leader_address=self.addr)
             
-    pass
+    # ++++++++++++ GRPC Functions: Heartbeat ++++++++++++ #
+    def HeartbeatLB(self, request, context):
+        """
+        Respond to heartbeat pings
+        Return: GenericResponse (success, message)
+        """
+        return app_pb2.GenericResponse(success=True, message="Alive")
+    
+    def heartbeat_loop(self):
+        """
+        Create a loop to send and receive heartbeats.
+        If someone dies, tell the server via InformServerDead
+        """
+        time.sleep(1)
+        while True:
+            # send heartbeat ping to all active replicas
+            with self.db_connection:
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT pid, addr FROM registry")
+                for pid, addr in cursor.fetchall():
+                    # don't send to yourself
+                    if pid == self.pid:
+                        cursor.execute("UPDATE registry SET timestamp = ? WHERE pid = ?", (time.time(), self.pid,))
+                        continue
+                    # try sending to other channel
+                    try:
+                        with grpc.insecure_channel(addr) as channel:
+                            stub = app_pb2_grpc.AppLoadBalancerStub(channel)
+                            hb_request = app_pb2.HeartbeatRequest()
+                            response = stub.HeartbeatLB(hb_request)
+                            # if alive, update DB
+                            if response.success:
+                                with self.db_connection:
+                                    cursor = self.db_connection.cursor()
+                                    cursor.execute("UPDATE registry SET timestamp = ? WHERE pid = ?", (time.time(), pid,))
+                                print(f"[LB {self.pid}] LB {pid} is alive!")
+                    except Exception as e:
+                        print(f"[LB {self.pid}] Heartbeat failed for LB {pid}.  Trying again...")
+            
+            # check which peers have not responded
+            current_time = time.time()
+            with self.db_connection:
+                cursor = self.db_connection.cursor()
+                cursor.execute("SELECT pid FROM registry")
+                pids = cursor.fetchall()
+                for pid_data in pids:
+                    pid = pid_data[0]
+                    if pid == self.pid:
+                        continue
+                    cursor.execute("SELECT timestamp FROM registry WHERE pid = ?", (pid,))
+                    last_hb = cursor.fetchone()[0]  # Fetch the result (single row)
+                    if current_time - last_hb > config.HEARTBEAT_TIMEOUT:
+                        print(f"[LB {self.pid}] LB {pid} is considered dead. {current_time} {last_hb, {current_time-last_hb}}")
+                        # let LB remove the registry (if already deleted, ignore)
+                        # If dead and in the list, remove it
+                        with self.db_connection:
+                            cursor = self.db_connection.cursor()
+                            cursor.execute("DELETE FROM registry WHERE pid = ?", (pid,))
+            time.sleep(config.HEARTBEAT_INTERVAL)
+
+    def heartbeat_start(self):
+        """
+        Start heartbeat loop.
+        """
+        threading.Thread(target=self.heartbeat_loop, daemon=True).start()
 
 
 # ++++++++++++ Communication Function ++++++++++++ #
@@ -239,6 +383,7 @@ def comm_create_lb(host):
     app_pb2_grpc.add_AppLoadBalancerServicer_to_server(app_lb, server)
     server.add_insecure_port(f'{app_lb.addr}')
     server.start()
+    app_lb.heartbeat_start()
     print(f"[LOAD BALANCER {app_lb.pid}] Started on {app_lb.addr}!")
     # If not manually shut down, use a long sleep loop to keep the main thread alive
     # Here, we sleep for 1 day
