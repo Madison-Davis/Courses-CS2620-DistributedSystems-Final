@@ -781,6 +781,11 @@ class AppLoadBalancerStub(object):
                 request_serializer=proto_dot_app__pb2.HeartbeatRequest.SerializeToString,
                 response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
                 _registered_method=True)
+        self.DecreaseClientCount = channel.unary_unary(
+                '/chat.AppLoadBalancer/DecreaseClientCount',
+                request_serializer=proto_dot_app__pb2.DecreaseClientCountRequest.SerializeToString,
+                response_deserializer=proto_dot_app__pb2.GenericResponse.FromString,
+                _registered_method=True)
 
 
 class AppLoadBalancerServicer(object):
@@ -822,6 +827,12 @@ class AppLoadBalancerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DecreaseClientCount(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_AppLoadBalancerServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -853,6 +864,11 @@ def add_AppLoadBalancerServicer_to_server(servicer, server):
             'HeartbeatLB': grpc.unary_unary_rpc_method_handler(
                     servicer.HeartbeatLB,
                     request_deserializer=proto_dot_app__pb2.HeartbeatRequest.FromString,
+                    response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
+            ),
+            'DecreaseClientCount': grpc.unary_unary_rpc_method_handler(
+                    servicer.DecreaseClientCount,
+                    request_deserializer=proto_dot_app__pb2.DecreaseClientCountRequest.FromString,
                     response_serializer=proto_dot_app__pb2.GenericResponse.SerializeToString,
             ),
     }
@@ -1017,6 +1033,33 @@ class AppLoadBalancer(object):
             target,
             '/chat.AppLoadBalancer/HeartbeatLB',
             proto_dot_app__pb2.HeartbeatRequest.SerializeToString,
+            proto_dot_app__pb2.GenericResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DecreaseClientCount(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/chat.AppLoadBalancer/DecreaseClientCount',
+            proto_dot_app__pb2.DecreaseClientCountRequest.SerializeToString,
             proto_dot_app__pb2.GenericResponse.FromString,
             options,
             channel_credentials,

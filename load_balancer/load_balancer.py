@@ -94,6 +94,10 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
             local_request = app_pb2.InformServerDeadRequest()
             local_request.ParseFromString(request.payload)
             self.InformServerDead(local_request, context, replicateRequest=True)
+        elif method == "DecreaseClientCount":
+            local_request = app_pb2.DecreaseClientCountRequest()
+            local_request.ParseFromString(request.payload)
+            self.DecreaseClientCount(local_request, context, replicateRequest=True)
         elif method == "CreateNewServer":
             local_request = app_pb2.CreateNewServerRequest()
             local_request.ParseFromString(request.payload)
@@ -162,8 +166,6 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
                 region_id = region_id[0]
                 cursor.execute("UPDATE regions SET server_pid = ? WHERE region_id = ?", (new_server_pid, region_id,))
 
-            # TODO: replicate this deletion on all load balancers
-
             # Prepare a dictionary of all known alive server info to send to the servers 
             # in order to inform them that one has died
             # Serialize the dictionary
@@ -193,6 +195,22 @@ class AppLoadBalancer(app_pb2_grpc.AppServiceServicer):
                     if not response.success:
                         print(f"[SERVER {self.pid}] Update to replica {pid} failed: {response.sql_database}")
             return app_pb2.GenericResponse(success=True, message="Server marked dead and updated servers")
+        
+    def DecreaseClientCount(self, request, context, replicateRequest=False):
+        """
+        Decrease the client count for a server
+        """
+        try:
+            with self.db_connection:
+                cursor = self.db_connection.cursor()
+                cursor.execute("UPDATE servers SET num_clients = num_clients - 1 WHERE server_pid = ?", (request.pid,))
+                # Replicate
+                if not replicateRequest:
+                    self.replicate_to_other_servers("DecreaseClientCount", request)
+                return app_pb2.GenericResponse(success=True, message="Client count decreased")
+        except Exception as e:
+            print(f"Error in DecreaseClientCount: {e}")
+            return app_pb2.GenericResponse(success=False, message=str(e))
 
     def GetServer(self, request, context, replicateRequest=False):
         """

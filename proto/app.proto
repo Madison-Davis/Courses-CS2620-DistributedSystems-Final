@@ -28,6 +28,7 @@ service AppLoadBalancer {
     rpc CreateNewServer(CreateNewServerRequest) returns (CreateNewServerResponse);
     rpc FindLBLeader(FindLBLeaderRequest) returns (FindLBLeaderResponse);
     rpc HeartbeatLB(HeartbeatRequest) returns (GenericResponse);
+    rpc DecreaseClientCount(DecreaseClientCountRequest) returns (GenericResponse);
 }
 
 message CreateAccountRequest {
@@ -209,6 +210,10 @@ message FindLBLeaderRequest {
 message FindLBLeaderResponse {
   bool success = 1;
   string leader_address = 2;
+}
+
+message DecreaseClientCountRequest {
+    int32 pid = 1;
 }
 
 message GenericResponse {

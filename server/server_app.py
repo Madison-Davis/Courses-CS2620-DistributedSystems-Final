@@ -339,6 +339,13 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 # Replicate operation
                 if not replicateRequest:
                     self.replicate_to_other_servers("DeleteAccount", request)
+                    # Also only inform the load balancer of this server has one less client once
+                    request = app_pb2.DecreaseClientCountRequest(pid=self.pid)
+                    try:
+                        response = self.lb_stub.DecreaseClientCount(request)
+                        print(f"Load balancer informed of deleted account: {response.success}")                                
+                    except grpc.RpcError as e:
+                        raise
                 return app_pb2.GenericResponse(success=True, message="Account deleted successfully")
             return response
         except Exception as e:
@@ -830,7 +837,6 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                             response = self.lb_stub.InformServerDead(request)
                             print(f"Load balancer informed of dead server {pid}: {response.success}")                                
                         except grpc.RpcError as e:
-                            # TODO: for future versions (replicated LB), try again from another load balancer
                             raise
 
             time.sleep(config.HEARTBEAT_INTERVAL)
