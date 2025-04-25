@@ -195,6 +195,7 @@ def button_logout():
     """
     User desires to logout
     """
+    response = app_client.logout()
     global data
     data = {}
     main_frame.grid_forget()

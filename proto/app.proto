@@ -6,6 +6,7 @@ service AppService {
     rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
     rpc VerifyPassword(VerifyPasswordRequest) returns (VerifyPasswordResponse);
     rpc Login(LoginRequest) returns (LoginResponse);
+    rpc Logout(LogoutRequest) returns (GenericResponse);
     rpc DeleteAccount(DeleteAccountRequest) returns (GenericResponse);
     rpc Broadcast(BroadcastRequest) returns (GenericResponse);
     rpc DeleteBroadcast(DeleteBroadcastRequest) returns (GenericResponse);
@@ -65,6 +66,9 @@ message LoginResponse {
     Account account_info = 3;
     repeated BroadcastObject broadcasts_sent = 4;
     repeated BroadcastObject broadcasts_recv = 5;
+}
+
+message LogoutRequest {
 }
 
 message GetRegionRequest {

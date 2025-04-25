@@ -324,6 +324,20 @@ class AppService(app_pb2_grpc.AppServiceServicer):
             print(f"[SERVER {self.pid}] Login Exception: {e}")
             return app_pb2.LoginResponse(success=False, message=f"Login Exception: {e}", account_info=None, broadcasts_sent=None, broadcasts_recv=None)
     
+    def Logout(self, request, context, replicateRequest = False):
+        """
+        Logs the user out and informs the load balancer
+        """
+         # Inform the load balancer of this server has one less client
+        request = app_pb2.DecreaseClientCountRequest(pid=self.pid)
+        try:
+            response = self.lb_stub.DecreaseClientCount(request)
+            print(f"Load balancer informed of logged out account: {response.success}")   
+            return app_pb2.GenericResponse(success=True, message="Account logged out successfully")                             
+        except grpc.RpcError as e:
+            raise
+
+
     def DeleteAccount(self, request, context, replicateRequest = False):
         """
         Delete account

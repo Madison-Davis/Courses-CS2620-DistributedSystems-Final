@@ -82,6 +82,23 @@ class AppClient:
                 if self.reconnect():
                     return self.login(username, pwd_hash)
             raise
+    
+    def logout(self):
+        """
+        Logout
+        """
+        try:
+            with grpc.insecure_channel(self.server_addr) as channel:
+                stub = app_pb2_grpc.AppServiceStub(channel)
+                request = app_pb2.LogoutRequest()
+                response = stub.Logout(request, timeout=5)
+                return response.success
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                print("[CLIENT] Connection failed logout. Attempting to reconnect to new leader...")
+                if self.reconnect():
+                    return self.logout()
+            raise
 
     def delete_account(self, uuid, username, pwd_hash):
         """
