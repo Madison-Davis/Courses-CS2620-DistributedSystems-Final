@@ -394,8 +394,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 
                     # If recipient is online, push broadcast to their queue
                     with self.lock:
-                        print(self.active_users, recipient_id)
-                        if recipient_id in self.active_users:
+                        if recipient_id in self.active_users and not replicateRequest:
                             self.broadcast_queues[recipient_id].put(app_pb2.BroadcastObject(
                                 broadcast_id = new_id,
                                 recipient_id = recipient_id,
@@ -447,8 +446,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                     recipient_username = cursor.fetchone()[0]
                     # If recipient is online, push broadcast to their queue
                     with self.lock:
-                        if recipient_id in self.active_users:
-                            print("SENDING DELETION TO USER", recipient_username)
+                        if recipient_id in self.active_users and not replicateRequest:
                             self.approval_queues[recipient_id].put(app_pb2.BroadcastObject(
                                 broadcast_id = broadcast_id,
                                 recipient_id = recipient_id,
@@ -613,6 +611,8 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 capacity = cursor.fetchone()[0]
                 cursor.execute("SELECT amount_requested FROM broadcasts WHERE broadcast_id = ? AND recipient_id = ?", (broadcast_id, uuid))
                 amount_requested = cursor.fetchone()[0]
+                cursor.execute("SELECT region FROM accounts WHERE uuid = ?", (uuid,))
+                region = cursor.fetchone()[0]
                 cursor.execute("SELECT username FROM accounts WHERE region = ? AND uuid = ?", (region, sender_id,))
                 sender_username = cursor.fetchone()[0]
 
@@ -628,12 +628,9 @@ class AppService(app_pb2_grpc.AppServiceServicer):
 
                     for user in users:
                         recipient_id = user[0]
-                        cursor.execute("SELECT username FROM accounts WHERE region = ? AND uuid = ?", (region, recipient_id,))
-                        recipient_username = cursor.fetchone()[0]
                         # If recipient is online, push broadcast to their queue
                         with self.lock:
-                            if recipient_id in self.active_users:
-                                print("SENDING APPROVAL TO USER", recipient_username)
+                            if recipient_id in self.active_users and not replicateRequest:
                                 self.approval_queues[recipient_id].put(app_pb2.BroadcastObject(
                                     broadcast_id = broadcast_id,
                                     recipient_id = recipient_id,
@@ -659,7 +656,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                             break 
                     
                     # If denied by everyone, update sender's GUI
-                    if all_denied:
+                    if all_denied and not replicateRequest:
                         with self.lock:
                             self.denial_queues[sender_id].put(app_pb2.BroadcastObject(
                                     broadcast_id = broadcast_id,
@@ -704,7 +701,6 @@ class AppService(app_pb2_grpc.AppServiceServicer):
         except Exception as e:
             print(f"[SERVER {self.pid}] GetRegion Exception: {e}")
             return app_pb2.GenericResponse(success=False, message="ApproveOrDeny error")
-
 
     # +++++++++++ GRPC Functions: Replication +++++++++++ #
     def ReplicateServer(self, request, context):
