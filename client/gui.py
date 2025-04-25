@@ -44,7 +44,7 @@ gui.title("Login")
 gui.geometry(f"{FRAME_WIDTH}x{FRAME_HEIGHT}")
 gui.rowconfigure(0, weight=1)
 gui.columnconfigure(0, weight=1)
-gui.resizable(False, False)
+# gui.resizable(False, False)
 # frames
 login_frame = tk.Frame(gui)
 main_frame = tk.Frame(gui, bg="gray20")
@@ -374,7 +374,8 @@ def load_main_frame(data):
     main_frame.columnconfigure(2, weight=3, uniform="main_frame_cols")   # broadcast section
 
     # Part 2: Row weights for dynamic resizing
-    for r in range(6):
+    main_frame.rowconfigure(0, weight=0)
+    for r in range(1, 6):
         main_frame.rowconfigure(r, weight=1)
 
     # ++++++++ Menu Sub-Frame ++++++++ #
