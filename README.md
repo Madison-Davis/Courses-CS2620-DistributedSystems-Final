@@ -68,7 +68,8 @@ Run unit tests:
 1. For testing purposes, we have 3 servers and will not be making new ones.  
 2. For servers, we start with one server per region, which is the leader.  For just proof of concept, we will not have ‘replicas’ of servers.  Rather, each server of a region it is not currently serving serves as that region’s backup.
 3. For clients, their shelter capacity is hidden for data privacy reasons.  Moreover, shelters can not change their region (they are physical locations and often will not change locations across the country).  
-4. For broadcasts, they are all or nothing (as in if a shelter requests 3 dogs, a recipient shelter must accept all 3 dogs, not just 1 or 2).  Broadcasts are just sent out to the shelter’s designated region.  
+4. For broadcasts, they are all or nothing (as in if a shelter requests 3 dogs, a recipient shelter must accept all 3 dogs, not just 1 or 2).  Broadcasts are just sent out to the shelter’s designated region.
+5. For load balancers, the 'number of clients' variable it keeps for each region is the number of active clients.
 
 
 
