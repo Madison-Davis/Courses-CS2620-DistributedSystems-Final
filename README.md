@@ -17,6 +17,13 @@ This site builds application for animal shelters to request to send dogs between
 Clone the repository.
 Generate Python gRPC files: Navigate to the root project directory and run `py -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/app.proto`
 
+Set configuration information in `config.py`:
+- Hosts: base and range
+- Ports: base and range
+- Regions: possible integers
+- Heartbeat: timeout and interval
+- Threads: higher max can support more clients
+
 Run load balancer:
 `py -m load_balancer.load_balancer --host=HOST --pid=PID`
 - HOST: valid host, e.g. 127.0.0.1
@@ -26,8 +33,6 @@ Run server:
 `py -m server.server_app --host=HOST --region=REGION`
 - HOST: valid host, e.g. 127.0.0.1
 - REGION: integer in {0, 1, 2}
-
-ADD YOUR HOST INFO IN THE CONFIG FILE
 
 Run client GUI:
 `py -m client.gui`
@@ -111,15 +116,16 @@ Accounts Table
 2. username: text
 3. region: integer in {0, 1, 2}
 4. dogs: integer
-5. capacity: integer                    // initialized to 30
+5. capacity: integer                    // arbitrarily initialized to 30
 6. pwd_hash: text
    
 Broadcasts Table
-1. broadcast_id: integer primary key autoincrement
+1. broadcast_id: integer
 2. recipient_id: integer
-3. sender_id: integer
-4. amount_requested: integer
-5. status: integer in {0, 1, 2}         // 0: denied, 1: approved, 2: pending
+3. sender_username: text
+4. sender_id: integer
+5. amount_requested: integer
+6. status: integer in {0, 1, 2, 3}      // 0: denied, 1: pending, 2: deleted, 3: approved
 
 Registry Table
 1. pid: integer primary key
@@ -161,8 +167,13 @@ To ensure password security, we store all password information as hashed passwor
 -------------------------------------------
 ## Robustness: Testing
 
-Our tests test for functionalities including the following:
-1. 
+We include both unit tests and integration tests to test all individual methods in isolation as well as entire pipelines of client and server actions. Our tests test for functionalities including the following:
+1. Password hashing
+2. All client methods
+3. Reconnecting if a server fails
+4. Replication and heartbeat mechanism
+5. Pipeline for creating an account
+6. Pipeline for broadcasting a request
 
 
 
