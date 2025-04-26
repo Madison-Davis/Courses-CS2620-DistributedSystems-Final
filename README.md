@@ -55,10 +55,11 @@ Run unit tests:
 ├── load_balancer
 │   ├── load_balancer.py        → functions for the load balancer
 ├── databases
-│   ├── lb_pid.py                → database for each load balancer of pid (#)
-│   ├── server_pid_reg.py        → database for each server of pid (#) and region (#)
+│   ├── lb_pid.py               → database for each load balancer of pid (#)
+│   ├── server_pid_reg.py       → database for each server of pid (#) and region (#)
 ├── tests
-│   ├── tests.py                → unit tests
+│   ├── unit_tests.py           → unit tests
+│   ├── integration_tests.py    → integration tests
 └── README.md
 ```
 
