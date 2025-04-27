@@ -65,7 +65,7 @@ Run unit tests:
 ├── tests
 │   ├── unit_tests.py           → unit tests
 │   ├── integration_tests.py    → integration tests
-└── README.md
+└── README.md                   → documentation file
 ```
 
 
