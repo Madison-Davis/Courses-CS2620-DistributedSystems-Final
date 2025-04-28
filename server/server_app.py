@@ -635,7 +635,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                         return app_pb2.GenericResponse(success=False, message="Exceeded capacity")
                     
                     cursor.execute("UPDATE accounts SET dogs = dogs + ? WHERE uuid = ?", (amount_requested, uuid,))
-                    cursor.execute("UPDATE broadcasts SET status = ? WHERE broadcast_id = ?", (statuses["Approved"], broadcast_id,))
+                    cursor.execute("UPDATE broadcasts SET status = ? WHERE broadcast_id = ? AND recipient_id = ?", (statuses["Approved"], broadcast_id, uuid))
                     cursor.execute("UPDATE accounts SET dogs = dogs - ? WHERE uuid = ?", (amount_requested, sender_id,))
                     cursor.execute("SELECT uuid FROM accounts WHERE region = ? AND uuid != ?", (region, uuid,))
                     users = cursor.fetchall()
@@ -658,7 +658,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                         self.replicate_to_other_servers("ApproveOrDeny", request)
                     return app_pb2.GenericResponse(success=True, message="Approved successfully")
                 else:
-                    cursor.execute("UPDATE broadcasts SET status = ? WHERE broadcast_id = ?", (statuses["Denied"], broadcast_id,))
+                    cursor.execute("UPDATE broadcasts SET status = ? WHERE broadcast_id = ? AND recipient_id = ?", (statuses["Denied"], broadcast_id, uuid))
                     cursor.execute("SELECT status FROM broadcasts WHERE broadcast_id = ?", (broadcast_id,))
                     all_status = cursor.fetchall()
                     
@@ -678,7 +678,7 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                                     sender_username = sender_username,
                                     sender_id = sender_id,
                                     amount_requested = amount_requested,
-                                    status = statuses["Approved"]
+                                    status = statuses["Denied"]
                                 ))
                     # Replicate to other servers
                     if not replicateRequest:
