@@ -14,11 +14,12 @@ from config import config
 
 
 # ++++++++++++  Variables: Client Data  ++++++++++++ #
-# Initialize client gRPC comms and data
+# Initialize client gRPC comms and global data
 # Both of these will be filled once one presses login button (so no need to edit)
 app_client = None
 data = {}
 
+# Switch between string and representative integer for broadcast statuses
 # DO NOT edit ordering
 statuses_to_word = {
     0: "Denied",
@@ -35,22 +36,24 @@ statuses = {
 
 
 # +++++++++++++++  Variables: GUI  +++++++++++++++ #
-# gui dimensions
+# GUI dimensions
 FRAME_WIDTH = 1425
 FRAME_HEIGHT = 725
-# gui
+
+# GUI setup
 gui = tk.Tk()
 gui.title("Login")
 gui.geometry(f"{FRAME_WIDTH}x{FRAME_HEIGHT}")
 gui.rowconfigure(0, weight=1)
 gui.columnconfigure(0, weight=1)
-# gui.resizable(False, False)
-# frames
+
+
+# Frames
 login_frame = tk.Frame(gui)
 main_frame = tk.Frame(gui, bg="gray20")
 main_frame_stats_toggled = False
 
-# shelter locations
+# Shelter locations
 # region #      where on map        boundaries
 # region 0      bottom              lat: [60, ], lon: [60,]
 # region 1      middle
@@ -61,6 +64,7 @@ main_frame_stats_toggled = False
 # NOTE: for the shelter location dots we can just make like a random number generator for a new user
 
 def reload_update_data():
+    """ Retrieve all updated data from the database and reload GUI with new data """
     global data
     response = app_client.login(username=data["username"], pwd_hash=data["pwd"])
     data = {
@@ -87,7 +91,7 @@ def update_broadcast_callback(incoming_request):
 # ++++++++++++ Helper Functions: Button Presses ++++++++++++ #
 def button_clicked_send(quantity):
     """
-    When the broadcast 'send' button is clicked.
+    Send broadcast when the broadcast 'send' button is clicked.
     """
     global data
     sender_id = data["uuid"]
@@ -97,19 +101,24 @@ def button_clicked_send(quantity):
     if quantity > current:
         messagebox.showerror("Error", "Quantity requested exceeds current inventory.")
         return
-    status = app_client.broadcast(sender_id, region, quantity)
+    success = app_client.broadcast(sender_id, region, quantity)
+    if not success:
+        messagebox.showerror("Error", "Could not send broadcast.")
+        return
     reload_update_data()
 
 def button_stats_numdogs(delta, gui_label):
     """
-    User decided to increment/decrement # of dogs they have.
+    User decided to manually increment/decrement # of dogs they have.
     Reflect change on GUI.
     """
     global data
     data['num_dogs'] = data['num_dogs'] + delta
     success = app_client.change_dogs(data["uuid"], delta)
+    if not success:
+        messagebox.showerror("Error", "Could not change number of dogs")
+        return
     gui_label.config(text=f"Capacity: {data['capacity']}\nCurrent No. Dogs: {data['num_dogs']}")
-    pass
 
 def button_enter_login(user, pwd, region, is_new):
     """
@@ -130,7 +139,6 @@ def button_enter_login(user, pwd, region, is_new):
             messagebox.showerror("Error", "Username already exists.")
             return
         assert(status)
-        # TODO: all are correct except the last 3, i'll just make those empty those later
         shelter_locations = [1,0,0] if region == 0 else [0,1,0] if region == 1 else [0,0,1]
         data = {
             "username" : user,
@@ -151,7 +159,6 @@ def button_enter_login(user, pwd, region, is_new):
             return
         assert(status)
         response = app_client.login(username=user, pwd_hash=pwd)
-        # TODO: all are correct except the shelter location, i'll just make those empty those later
         region = response.account_info.region
         shelter_locations = [1,0,0] if region == 0 else [0,1,0] if region == 1 else [0,0,1]
         data = {
@@ -166,22 +173,19 @@ def button_enter_login(user, pwd, region, is_new):
             "broadcasts_recv" : [] if response.broadcasts_recv is None else response.broadcasts_recv
         }
 
-    # set up a real-time broadcast thread
+    # set up real time threads to listen for broadcasts, approvals, deletions, denials
     listener_thread = threading.Thread(target=app_client.receive_broadcast, 
                                        args=(data["uuid"], update_broadcast_callback,),
                                        daemon=True)
     listener_thread.start()
-    # set up a real-time approval thread
     approval_thread = threading.Thread(target=app_client.receive_approval, 
                                        args=(data["uuid"], update_broadcast_callback,),
                                        daemon=True)
     approval_thread.start()
-    # set up a real-time deletion thread
     deletion_thread = threading.Thread(target=app_client.receive_deletion, 
                                        args=(data["uuid"], update_broadcast_callback,),
                                        daemon=True)
     deletion_thread.start()
-    # set up a real-time denial thread
     denial_thread = threading.Thread(target=app_client.receive_denial, 
                                        args=(data["uuid"], update_broadcast_callback,),
                                        daemon=True)
@@ -232,8 +236,7 @@ def load_login_frame():
         login_frame.rowconfigure(i, weight=weights[i])
     login_frame.columnconfigure(0, weight=1)
 
-    # Label for login type
-    # Dropdown for new/returning
+    # Label for login type: dropdown for new/returning
     tk.Label(login_frame, text="Login Type:").grid(row=1, column=0)
     login_mode = tk.StringVar(value="new")
     mode_menu = tk.OptionMenu(login_frame, login_mode, "new", "returning", command=lambda _: update_fields())
@@ -249,17 +252,20 @@ def load_login_frame():
         for widget in field_container.winfo_children():
             widget.destroy()
         entries.clear()
+
         # Username
         row = 0
         tk.Label(field_container, text="Username:").grid(row=row, column=0, sticky='w', padx=5)
         entries['username'] = tk.Entry(field_container)
         entries['username'].grid(row=row+1, column=0, padx=5)
         row += 2
+
         # Password
         tk.Label(field_container, text="Password:").grid(row=row, column=0, sticky='w', padx=5)
         entries['pwd'] = tk.Entry(field_container, show='*')
         entries['pwd'].grid(row=row+1, column=0, padx=5)
         row += 2
+
         # Region (only for new users)
         if login_mode.get() == "new":
             tk.Label(field_container, text="Region:").grid(row=row, column=0, sticky='w', padx=5)
@@ -272,6 +278,7 @@ def load_login_frame():
             entries['region'] = tk.OptionMenu(field_container, selected_region_name, *regions)
             entries['region'].grid(row=row+1, column=0, padx=5)
             row += 2
+
         # Submit button
         def submit():
             user = entries['username'].get()
@@ -294,6 +301,7 @@ def random_point_in_polygon(region):
     max_lat = max(lat for lat, _ in region)-7
     min_lon = min(lon for _, lon in region)+10
     max_lon = max(lon for _, lon in region)-10
+
     # Generate a random point within the bounding box
     random_lat = random.uniform(min_lat, max_lat)
     random_lon = random.uniform(min_lon, max_lon)
@@ -308,15 +316,18 @@ def load_map_with_dots(map_frame):
     canvas.grid(row=0, column=0, padx=1, pady=1, sticky="nsew")
     map_frame.grid_rowconfigure(0, weight=1)
     map_frame.grid_columnconfigure(0, weight=1)
+
     # Coordinate normalization
     lat_min, lat_max = 0, 90
     lon_min, lon_max = 0, 180
     map_width, map_height = 698, 711
+
     # Define a function to plot points
     def lat_lon_to_canvas(lat, lon):
         x = (lon - lon_min) / (lon_max - lon_min) * map_width
         y = map_height - (lat - lat_min) / (lat_max - lat_min) * map_height
         return x, y
+    
     # Design fictional regions
     region_0 = [
         (20, 80), (25, 78), (28, 76), (30, 72),
@@ -345,6 +356,7 @@ def load_map_with_dots(map_frame):
         (66, 54)
     ]
     region_2 = [(lat, 1.2*lon+30) for lat, lon in region_2]
+
     # Draw region polygons
     def draw_region(region_coords):
         points = [lat_lon_to_canvas(lat, lon) for lat, lon in region_coords]
@@ -352,6 +364,7 @@ def load_map_with_dots(map_frame):
     draw_region(region_0)
     draw_region(region_1)
     draw_region(region_2)
+
     # Plot red dots for each lat/lon in coordinates
     for region, num_shelters in enumerate(data["shelter_locations"]):
         for _ in range(num_shelters):
@@ -420,26 +433,19 @@ def load_main_frame(data):
     tk.Button(broadcast_subframe, text="Send", command=lambda:button_clicked_send(entry.get())).pack(side='left', padx=5, pady=5)
     
     # Row 1: sent-out broadcasts
-    # frame
     sent_out_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1, relief='solid', bg="gray20")
     sent_out_broadcasts_frame.grid(row=1, column=2, sticky='nsew', padx=5, pady=5)
-    # title label
     tk.Label(sent_out_broadcasts_frame, text="Sent Broadcasts", bg="gray20", fg="white", font=("Helvetica", 14)).pack(pady=5)
-    # data table
     canvas_sent = tk.Canvas(sent_out_broadcasts_frame, bg="gray20")
     canvas_sent.pack(side="left", fill="both", expand=True)
-    # data table scrollbar
     scrollbar_received = tk.Scrollbar(sent_out_broadcasts_frame, orient="vertical", command=canvas_sent.yview, width=5)
     scrollbar_received.pack(side="right", fill="y")
     canvas_sent.configure(yscrollcommand=scrollbar_received.set)
-    # internal container for rows
     sent_broadcasts_container = tk.Frame(canvas_sent, bg="gray20")
     window_id = canvas_sent.create_window((0, 0), window=sent_broadcasts_container, anchor="nw")
-    # func: auto-resize container to match canvas width
     def resize_container(event):
         canvas_sent.itemconfig(window_id, width=event.width)
     canvas_sent.bind("<Configure>", resize_container)
-    # func: scrollregion updates as content changes
     sent_broadcasts_container.bind(
         "<Configure>",
         lambda event: canvas_sent.configure(scrollregion=canvas_sent.bbox("all"))
@@ -447,26 +453,19 @@ def load_main_frame(data):
     load_sent_broadcasts(sent_broadcasts_container, data["broadcasts_sent"])
     
     # Row 2: received Broadcasts
-    # frame
     received_broadcasts_frame = tk.Frame(main_frame, highlightbackground="black", highlightthickness=1, relief='solid', bg="gray20")
     received_broadcasts_frame.grid(row=2, column=2, sticky='nsew', padx=5, pady=5)
-    # title label
     tk.Label(received_broadcasts_frame, text="Received Broadcasts", bg="gray20", fg="white", font=("Helvetica", 14)).pack(pady=5)
-    # data table
     canvas_received = tk.Canvas(received_broadcasts_frame, bg="gray20")
     canvas_received.pack(side="left", fill="both", expand=True)
-    # data table scrollbar
     scrollbar_received = tk.Scrollbar(received_broadcasts_frame, orient="vertical", command=canvas_received.yview, width=5)
     scrollbar_received.pack(side="right", fill="y")
     canvas_received.configure(yscrollcommand=scrollbar_received.set)
-    # internal container for rows
     broadcasts_container = tk.Frame(canvas_received, bg="gray20")
     window_id = canvas_received.create_window((0, 0), window=broadcasts_container, anchor="nw")
-    # func: auto-resize container to match canvas width
     def resize_container(event):
         canvas_received.itemconfig(window_id, width=event.width)
     canvas_received.bind("<Configure>", resize_container)
-    # func: scrollregion updates as content changes
     broadcasts_container.bind(
         "<Configure>",
         lambda event: canvas_received.configure(scrollregion=canvas_received.bbox("all"))
@@ -491,6 +490,7 @@ def approve_broadcast(broadcast, approve_btn, deny_btn):
         broadcast.status = statuses["Approved"]
     else:
         messagebox.showerror("Error", f"Could not approve broadcast")
+        return
     approve_btn.config(state="disabled")
     deny_btn.config(state="disabled")
     reload_update_data()
@@ -498,7 +498,6 @@ def approve_broadcast(broadcast, approve_btn, deny_btn):
 def deny_broadcast(broadcast, approve_btn, deny_btn):
     """
     Callback for when the Reject button is pressed.
-    You may want to update the broadcast's status or perform an action with app_client.
     """
     global data
     success = app_client.approve_or_deny(data["uuid"], broadcast.broadcast_id, 0)
@@ -506,6 +505,7 @@ def deny_broadcast(broadcast, approve_btn, deny_btn):
         broadcast.status = statuses["Denied"]
     else:
         messagebox.showerror("Error", f"Could not deny broadcast")
+        return
     approve_btn.config(state="disabled")
     deny_btn.config(state="disabled")
     reload_update_data()
@@ -513,8 +513,6 @@ def deny_broadcast(broadcast, approve_btn, deny_btn):
 def delete_sent_broadcast(broadcast, delete_btn):
     """
     Callback for when the Delete button is pressed in a sent broadcast row.
-    Insert your deletion logic here, for example calling a method on app_client,
-    then refresh the GUI.
     """
     global data
     success = app_client.delete_broadcast(data["uuid"], broadcast.broadcast_id)
@@ -528,11 +526,6 @@ def delete_sent_broadcast(broadcast, delete_btn):
 def load_sent_broadcasts(container, broadcasts):
     """
     Clears the container and creates a header row plus rows for each sent broadcast.
-    The grid is used to align three columns:
-      Column 0: Dogs
-      Column 1: Status
-      Column 2: Delete button
-    All cell contents are centered.
     """
     # Clear any existing widgets in the container.
     for widget in container.winfo_children():
@@ -575,9 +568,6 @@ def load_sent_broadcasts(container, broadcasts):
         if is_pending:
             delete_btn.config(command=lambda b=broadcast, db=delete_btn: delete_sent_broadcast(b, db))
         delete_btn.grid(row=0, column=2, sticky="nsew", padx=15, pady=2)
-        # tk.Button(row_frame, text="Delete", width=8,
-        #           command=lambda b=broadcast: delete_sent_broadcast(b))\
-        #     .grid(row=0, column=2, sticky="nsew", padx=15, pady=2)
 
 def load_received_broadcasts(container, broadcasts):
     """

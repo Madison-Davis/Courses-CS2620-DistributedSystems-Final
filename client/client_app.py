@@ -50,6 +50,7 @@ class AppClient:
     def verify_password(self, username, pwd_hash):
         """
         Verify password
+        Return: success (T/F)
         """
         # Try to see if our entered password matches what we stored
         try:
@@ -85,7 +86,8 @@ class AppClient:
     
     def logout(self):
         """
-        Logout
+        Logout user
+        Return: success (T/F)
         """
         try:
             with grpc.insecure_channel(self.server_addr) as channel:
@@ -103,6 +105,7 @@ class AppClient:
     def delete_account(self, uuid, username, pwd_hash):
         """
         Delete account
+        Return: success (T/F)
         """
         try:
             with grpc.insecure_channel(self.server_addr) as channel:
@@ -119,7 +122,8 @@ class AppClient:
 
     def broadcast(self, sender_id, region, quantity):
         """
-        Broadcast
+        Broadcast request for dogs
+        Return: success (T/F)
         """
         try:
             with grpc.insecure_channel(self.server_addr) as channel:
@@ -138,6 +142,7 @@ class AppClient:
     def receive_broadcast(self, uuid, callback):
         """
         Receive broadcast stream
+        Return: None
         """
         try:
             for broadcast in self.stub.ReceiveBroadcastStream(app_pb2.ReceiveBroadcastRequest(uuid=int(uuid))):
@@ -162,6 +167,7 @@ class AppClient:
     def delete_broadcast(self, uuid, broadcast_id):
         """
         Approve or deny broadcast request
+        Return: success (T/F)
         """
         try:
             with grpc.insecure_channel(self.server_addr) as channel:
@@ -179,6 +185,7 @@ class AppClient:
     def receive_deletion(self, uuid, callback):
         """
         Receive broadcast deletions
+        Return: None
         """
         try:
             for broadcast in self.stub.ReceiveDeletionStream(app_pb2.ReceiveDeletionRequest(uuid=int(uuid))):
@@ -203,6 +210,7 @@ class AppClient:
     def approve_or_deny(self, uuid, broadcast_id, approved):
         """
         Approve or deny broadcast request
+        Return: success (T/F)
         """
         try:
             with grpc.insecure_channel(self.server_addr) as channel:
@@ -220,6 +228,7 @@ class AppClient:
     def receive_approval(self, uuid, callback):
         """
         Receive broadcast approvals
+        Return: None
         """
         try:
             for broadcast in self.stub.ReceiveApprovalStream(app_pb2.ReceiveApprovalRequest(uuid=int(uuid))):
@@ -244,6 +253,7 @@ class AppClient:
     def receive_denial(self, uuid, callback):
         """
         Receive broadcast denials
+        Return: None
         """
         try:
             for broadcast in self.stub.ReceiveDenialStream(app_pb2.ReceiveDenialRequest(uuid=int(uuid))):
@@ -268,6 +278,7 @@ class AppClient:
     def change_dogs(self, uuid, change_amount):
         """
         Change account's number of dogs
+        Return: success (T/F)
         """
         try:
             with grpc.insecure_channel(self.server_addr) as channel:
@@ -285,6 +296,7 @@ class AppClient:
     def reconnect(self):
         """
         Fetch the new leader's address and reinitialize the connection.
+        Return: success (T/F)
         """
         new_leader = self.get_region_server(self.region)
         if new_leader:
@@ -320,10 +332,8 @@ class AppClient:
                             response = stub.GetRegion(request, timeout=5)
                             region = response.region
                             region_found = True
-                            print("REGION FOUND AS ", region)
                             break
                     except Exception as e:
-                        #print(f'[CLIENT] Exception 1: get_region_server find region {e}')
                         continue
                     if region_found:
                         break 
@@ -348,7 +358,6 @@ class AppClient:
                             return response.address
                 # If they do not respond, likely not alive, continue
                 except Exception as e:
-                    #print(f'[CLIENT] Exception 2: get_region_server {e}')
                     continue
         # If no load balancer is alive, return None
         return None
