@@ -74,7 +74,6 @@ class AppService(app_pb2_grpc.AppServiceServicer):
                 print(f"[SERVER] ERROR: ran out of PIDs to make a new server")
                 return None
         except grpc.RpcError as e:
-            # TODO: for future versions, try again from another load balancer
             raise
 
     def initialize_database(self, pid, data):
