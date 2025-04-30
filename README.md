@@ -38,7 +38,10 @@ Run client GUI:
 `py -m client.gui`
 
 Run unit tests:
-`py -m unittest tests.tests`
+`py -m unittest tests.unit_tests`
+
+Run integration tests:
+`py -m unittest tests.integration_tests`
 
 
 -------------------------------------------
@@ -91,7 +94,7 @@ Picture here is our login frame GUI design.  It has a dropdown of choosing to lo
 <img width="600" alt="Screenshot 2025-04-24 at 10 13 46 AM" src="https://github.com/user-attachments/assets/c995c42f-30f1-4515-940e-06fadcbce732" />
 
 
-Picture here as an image is our main frame GUI design.  It provides a space on the left for shelter information and statistics, such as total capacity and dog count.  For dog count, it is automatically updated during an accepted broadcast, and can also be manually updated if the shelter individually receives more dogs.  The middle space shows a map of shelters.  It is dynamic in the sense that a dot shows up in a part of the map based on the inputted region (3 regions total, as seen from the 3 figures in the map).  The right side shows a place to ask for a broadcast, a table of all your previous broadcasts and their status (pending/approved/denied), and broadcasts you received from other shelters in your region (whereupon you can accept or deny it).  If you accept or deny, for a short time it says ‘pending’.  This is for the case where two shelters simultaneously respond to the broadcast; the client will determine which was earlier and go with that response, whereupon the accept/reject button will be greyed out on all other shelters’ received broadcasts, indicating that this request has been served.
+Pictured here as an image is our main frame GUI design.  It provides a space on the left for shelter information and statistics, such as total capacity and dog count.  For dog count, it is automatically updated during an accepted broadcast, and can also be manually updated if the shelter individually receives more dogs.  The middle space shows a map of shelters.  It is dynamic in the sense that a dot shows up in a part of the map based on the inputted region (3 regions total, as seen from the 3 figures in the map).  The right side shows a place to ask for a broadcast, a table of all your previous broadcasts and their status (pending/approved/denied), and broadcasts you received from other shelters in your region (whereupon you can accept or deny it).  If you accept or deny, for a short time it says ‘pending’.  This is for the case where two shelters simultaneously respond to the broadcast; the client will determine which was earlier and go with that response, whereupon the accept/reject button will be greyed out on all other shelters’ received broadcasts, indicating that this request has been served.
 
 
 
@@ -101,6 +104,40 @@ Picture here as an image is our main frame GUI design.  It provides a space on t
 ## Protocol Design
 
 We utilized gRPC to design how messages were to be sent to/from the client/server.  We encourage you to look into the `app.proto` file for the complete list of all of our services and messages.  We will highlight the main ones here.
+
+Most are unary responses with the exception of the Receive methods. Because the client will not know when they are receiving a broadcast/approval/denial/deletion, we instantiate a thread to request to receive and then constantly listen for any stream of information coming back from the server. The client, upon receiving a message, will then act accordingly.
+
+```
+service AppService {
+    rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+    rpc VerifyPassword(VerifyPasswordRequest) returns (VerifyPasswordResponse);
+    rpc Login(LoginRequest) returns (LoginResponse);
+    rpc Logout(LogoutRequest) returns (GenericResponse);
+    rpc DeleteAccount(DeleteAccountRequest) returns (GenericResponse);
+    rpc Broadcast(BroadcastRequest) returns (GenericResponse);
+    rpc DeleteBroadcast(DeleteBroadcastRequest) returns (GenericResponse);
+    rpc ReceiveDeletionStream(ReceiveDeletionRequest) returns (stream BroadcastObject);
+    rpc ReceiveBroadcastStream(ReceiveBroadcastRequest) returns (stream BroadcastObject);
+    rpc ApproveOrDeny(ApproveOrDenyRequest) returns (GenericResponse);
+    rpc ReceiveApprovalStream(ReceiveApprovalRequest) returns (stream BroadcastObject);
+    rpc ReceiveDenialStream(ReceiveDenialRequest) returns (stream BroadcastObject);
+    rpc ChangeDogs(ChangeDogsRequest) returns (GenericResponse);
+    rpc ReplicateServer(ReplicationRequest) returns (GenericResponse);
+    rpc Heartbeat(HeartbeatRequest) returns (GenericResponse);
+    rpc UpdateExistingServer(UpdateExistingServerRequest) returns (UpdateExistingServerResponse);
+    rpc GetRegion(GetRegionRequest) returns (GetRegionResponse);
+}
+
+service AppLoadBalancer {
+    rpc ReplicateLB(ReplicationRequest) returns (GenericResponse);
+    rpc InformServerDead(InformServerDeadRequest) returns (GenericResponse);
+    rpc GetServer(GetServerRequest) returns (GetServerResponse);
+    rpc CreateNewServer(CreateNewServerRequest) returns (CreateNewServerResponse);
+    rpc FindLBLeader(FindLBLeaderRequest) returns (FindLBLeaderResponse);
+    rpc HeartbeatLB(HeartbeatRequest) returns (GenericResponse);
+    rpc DecreaseClientCount(DecreaseClientCountRequest) returns (GenericResponse);
+}
+```
 
 
 
